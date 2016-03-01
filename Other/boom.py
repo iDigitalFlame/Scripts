@@ -283,7 +283,7 @@ class Exploit:
                 pse = int(trgv[0][iss + 1:], 16)
             except:
                 return None
-        for x in range(pss, pse):
+        for x in range(pss, pse+1):
             if not tse:
                 range_targets.append('%s%s%s' % (tss, rv, (x if rv == '.' else hex(x).replace('0x',''))))
             else:
