@@ -5,7 +5,7 @@
 #include <psapi.h>
 
 // AV Inject Detection Script
-// Created to get IBM Trusteer to detect something (read: it sucks)\
+// Created to get IBM Trusteer to detect something (read: it sucks)
 // Build "gcc -o derp.exe detectme.c -lpsapi"
 
 struct PROCINFO {
