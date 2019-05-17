@@ -1,3 +1,7 @@
+// detectme.c
+// Attemts to trigger AV via Process Hijacking
+// iDigitalFlame
+
 #define _WIN32_WINNT 0x0501
 
 #include <stdio.h>
@@ -38,7 +42,7 @@ int main(int argc, char *argv[])
 }
 Process* get_processes(int **proc_count)
 {
-	DWORD pList[2048], pRet, pCount;	
+	DWORD pList[2048], pRet, pCount;
 	if(!EnumProcesses(pList, sizeof(pList), &pRet))
 		return NULL;
 	pCount = pRet/sizeof(DWORD);
@@ -49,7 +53,7 @@ Process* get_processes(int **proc_count)
 	*proc_count = (int*)pCount;
 	DWORD count;
 	for(pCounter = 0; pCounter < pCount; pCounter++)
-	{		
+	{
 		pInfo[pCounter].id = pList[pCounter];
 		pInfo[pCounter].name = calloc(256, 1);
 		pInfo[pCounter].path = calloc(256, 1);

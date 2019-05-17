@@ -1,3 +1,7 @@
+// linker.go
+// URL Shortner with MySQL database.
+// iDigitalFlame
+
 package main
 
 import (
@@ -287,5 +291,3 @@ func getLinkRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 	fmt.Fprintf(w, http.StatusText(http.StatusMethodNotAllowed))
 }
-
-//# EOF

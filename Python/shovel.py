@@ -1,49 +1,72 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
-import json, sys
-
+import sys
+import json
 
 from optparse import OptionParser
 
 try:
-	import requests
-except:
-    print('You must install requests in order to use this!')
-    print('\tpip install requests')
+    import requests
+except ImportError:
+    print("You must install requests in order to use this!")
+    print("\tpip install requests")
     sys.exit(-1)
 
-IP_LOOKUP = 'http://freegeoip.net/json/%s'
+IP_LOOKUP = "http://freegeoip.net/json/%s"
+
 
 def _main():
     inputc = OptionParser()
-    inputc.add_option('-t', '--target', dest='target', help='IPs/FQDNs of Targets (Comma Seperated)', default=None)
-    inputc.add_option('-o', '--out', dest='output', help='Output data to file', default=None)
-    inputc.add_option('-i', '--in', dest='input', help='Input file with IPs/FQDN (CSV/Newline)', default=None)
-    inputc.add_option('-c', '--csvcol', dest='csvcol', help='CSV Column to use (If CSV is used)', default=None)
+    inputc.add_option(
+        "-t",
+        "--target",
+        dest="target",
+        help="IPs/FQDNs of Targets (Comma Seperated)",
+        default=None,
+    )
+    inputc.add_option(
+        "-o", "--out", dest="output", help="Output data to file", default=None
+    )
+    inputc.add_option(
+        "-i",
+        "--in",
+        dest="input",
+        help="Input file with IPs/FQDN (CSV/Newline)",
+        default=None,
+    )
+    inputc.add_option(
+        "-c",
+        "--csvcol",
+        dest="csvcol",
+        help="CSV Column to use (If CSV is used)",
+        default=None,
+    )
     (targs, arg) = inputc.parse_args()
     if not targs:
         print("Incorrect args!  Please use shovel.py -h")
         sys.exit(-1)
     if targs.target and targs.input:
-        print('[ERROR] You must select an input using (-t) or (-i)!')
+        print("[ERROR] You must select an input using (-t) or (-i)!")
         sys.exit(-1)
     if targs.input:
         rval = targs.input
-        if rval and '.csv' in rval and not targs.csvcol:
-            print('[ERROR] You must sepecify a CSV Column using (-c)!')
+        if rval and ".csv" in rval and not targs.csvcol:
+            print("[ERROR] You must sepecify a CSV Column using (-c)!")
             sys.exit(-1)
     ip_s = None
     ip_list = []
     fil_out = None
     if targs.output:
-        fil_out = open(targs.output, 'w+')
-        fil_out.write("IP Address,Country,Country Code,Region,Region Code,City,Zip,Time Zone,Longitude,Latitude\r\n")
+        fil_out = open(targs.output, "w+")
+        fil_out.write(
+            "IP Address,Country,Country Code,Region,Region Code,City,Zip,Time Zone,Longitude,Latitude\r\n"
+        )
     if targs.input:
         None
     elif targs.target:
         ip_s = targs.target
-        if ',' in ip_s:
-            ip_ts = ip_s.split(',')
+        if "," in ip_s:
+            ip_ts = ip_s.split(",")
             for ips in ip_ts:
                 ip_list.append(ips.strip())
             ip_s = None
@@ -57,8 +80,10 @@ def _main():
     print("Done.")
     sys.exit(0)
 
+
 def _splash():
-	print("""
+    print(
+        """
         ___
         \_/
          |
@@ -73,9 +98,10 @@ def _splash():
       |     |
       \ \_/ /
        '._.'
-		""")
-	print('-idf 2015')
-	print('shovel.py - IP Geolocation Tool')
+       """
+    )
+    print("-idf 2015")
+    print("shovel.py - IP Geolocation Tool")
 
 
 def _doshovel_single(ip, output=None):
@@ -85,27 +111,48 @@ def _doshovel_single(ip, output=None):
             if retval and retval.status_code == 200:
                 jsn = json.loads(retval.content)
                 if output:
-                    output.write('%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\r\n' %
-                                 (jsn['ip'], jsn['country_name'], jsn['country_code'], jsn['region_name'],
-                                  jsn['region_code'], jsn['city'], jsn['zip_code'], jsn['time_zone'], jsn['latitude'],
-                                  jsn['longitude']))
+                    output.write(
+                        "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\r\n"
+                        % (
+                            jsn["ip"],
+                            jsn["country_name"],
+                            jsn["country_code"],
+                            jsn["region_name"],
+                            jsn["region_code"],
+                            jsn["city"],
+                            jsn["zip_code"],
+                            jsn["time_zone"],
+                            jsn["latitude"],
+                            jsn["longitude"],
+                        )
+                    )
                 else:
-                    print('IP: %s \t> %s %s %s %s %s (%s,%s)' % (jsn['ip'], jsn['country_name'], jsn['region_code'],
-                                                            jsn['city'], jsn['zip_code'], jsn['time_zone'],
-                                                            jsn['latitude'], jsn['longitude']))
+                    print(
+                        "IP: %s \t> %s %s %s %s %s (%s,%s)"
+                        % (
+                            jsn["ip"],
+                            jsn["country_name"],
+                            jsn["region_code"],
+                            jsn["city"],
+                            jsn["zip_code"],
+                            jsn["time_zone"],
+                            jsn["latitude"],
+                            jsn["longitude"],
+                        )
+                    )
             else:
                 print('Could not lookup "%s" there was an issue!')
                 return None
         except Exception as Ex:
-            print('Problem connecting to GeoIP provider! %s' % str(Ex))
+            print("Problem connecting to GeoIP provider! %s" % str(Ex))
             sys.exit(-1)
 
 
 def _doshovel_multi(iplist, output=None):
-	for ip in iplist:
-		_doshovel_single(ip, output)
+    for ip in iplist:
+        _doshovel_single(ip, output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _splash()
     _main()
