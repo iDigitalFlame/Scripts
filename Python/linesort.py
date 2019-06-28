@@ -20,6 +20,10 @@ cm = list()
 sl = list()
 pl = dict()
 
+fl = None
+if len(sys.argv) == 3:
+    fl = sys.argv[2]
+
 for l in rd.split("\n"):
     if len(l) >= 1 and (l[0] == "#" or l[0] == ";"):
         cm.append(l)
@@ -27,12 +31,12 @@ for l in rd.split("\n"):
         cm.append(l)
     else:
         ma = None
-        if ", " in l and (mxt is None or mxt == ", "):
-            ma = l.index(", ")
-            mxt = ", "
-        elif "= " in l and (mxt is None or mxt == "= "):
-            ma = l.index("= ")
-            mxt = "= "
+        if "," in l and (mxt is None or mxt == ",") and (fl is None or fl == ","):
+            ma = l.index(",")
+            mxt = ","
+        elif "=" in l and (mxt is None or mxt == "=") and (fl is None or fl == "="):
+            ma = l.index("=")
+            mxt = "="
         if ma is not None:
             mx = max(mx, ma)
             ps = l.split(mxt)
@@ -44,7 +48,8 @@ for l in rd.split("\n"):
         else:
             sl.append(l)
 
-sl.sort(key=len)
+if len(sys.argv) == 2:
+    sl.sort(key=len)
 
 if mx > 0:
     mxl = (mx // 4) * 4
