@@ -15,137 +15,130 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 const (
-	quotesDBFile      = "$HOME/.config/quotes.db"
-	quotesDownloadURL = "http://www.forismatic.com/api/1.0/"
+	quotesURL  = "http://www.forismatic.com/api/1.0/"
+	quotesFile = "$HOME/.config/quotes.db"
 )
 
-type quoteDictonary []string
+var (
+	random = rand.New(rand.NewSource(time.Now().Unix() ^ 2))
+)
+
+type quotes []string
 
 func main() {
+	f := flag.String("file", quotesFile, "Quotes file path.")
+	a := flag.String("add", "", "Add a quote to the quotes file.")
 	d := flag.Bool("get", false, "Download a quote from the Internet.")
 	flag.Parse()
-	q, err := newQuoteDictonary(quotesDBFile)
-	if err != nil {
-		fmt.Printf("Exception occured: %s\n", err.Error())
+
+	q := new(quotes)
+	if err := q.load(*f); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 		os.Exit(1)
 	}
-	if *d {
-		s, err := q.downloadQuote(quotesDownloadURL)
-		if err != nil {
-			fmt.Printf("Exception occured: %s\n", err.Error())
+
+	if len(*a) > 0 {
+		q.add(*a)
+		if err := q.save(*f); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 			os.Exit(1)
 		}
-		fmt.Printf("%s\n", s)
-		if err := q.saveDictonary(quotesDBFile); err != nil {
-			fmt.Printf("Exception occured: %s\n", err.Error())
+		os.Exit(0)
+	} else if *d {
+		if err := q.download(quotesURL); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 			os.Exit(1)
 		}
-	} else {
-		fmt.Printf("%s\n", q.getQuote())
+		if err := q.save(*f); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
+	fmt.Fprintf(os.Stdout, "%s\n", q.String())
 	os.Exit(0)
 }
-
-func (q *quoteDictonary) getQuote() string {
-	r := rand.New(rand.NewSource(time.Now().Unix()))
-	return (*q)[r.Intn(len(*q))]
-}
-
-func (q *quoteDictonary) saveDictonary(s string) error {
-	p := os.ExpandEnv(s)
-	f, err := os.Stat(p)
-	if err == nil && f.IsDir() {
-		return fmt.Errorf("quotes db path \"%s\" is a directory", p)
-	}
-	if err != nil {
-		if err := ioutil.WriteFile(p, []byte("\n"), 0640); err != nil {
-			return fmt.Errorf("could not create quotes db \"%s\", %s", p, err.Error())
+func (q *quotes) add(s string) {
+	c := strings.ToLower(s)
+	for i := range *q {
+		if strings.ToLower((*q)[i]) == c {
+			return
 		}
 	}
-	w, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640)
+	*q = append(*q, c)
+}
+func (q *quotes) String() string {
+	return (*q)[random.Intn(len(*q))]
+}
+func (q *quotes) load(s string) error {
+	f := os.ExpandEnv(s)
+	if i, err := os.Stat(f); err != nil || i.IsDir() {
+		return fmt.Errorf("file path \"%s\" is not valid", f)
+	}
+	b, err := ioutil.ReadFile(f)
 	if err != nil {
-		return fmt.Errorf("could not open quotes db \"%s\", %s", p, err.Error())
+		return xerrors.Errorf("could not read file \"%s\": %s", f, err)
+	}
+	*q = strings.Split(string(b), "\n")
+	return nil
+}
+func (q *quotes) save(s string) error {
+	f := os.ExpandEnv(s)
+	if i, err := os.Stat(f); err != nil || i.IsDir() {
+		return fmt.Errorf("file path \"%s\" is not valid", f)
+	}
+	w, err := os.OpenFile(f, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640)
+	if err != nil {
+		return xerrors.Errorf("could not open file \"%s\": %w", f, err)
 	}
 	defer w.Close()
-	for _, l := range *q {
-		if len(l) > 0 {
-			if _, err := fmt.Fprintf(w, "%s\n", l); err != nil {
-				return fmt.Errorf("could not save quotes db \"%s\", %s", p, err.Error())
-			}
+	for x := range *q {
+		if len((*q)[x]) == 0 {
+			continue
+		}
+		if _, err := fmt.Fprintf(w, "%s\n", (*q)[x]); err != nil {
+			return xerrors.Errorf("could not save file \"%s\": %w", f, err)
 		}
 	}
 	return nil
 }
-
-func newQuoteDictonary(s string) (*quoteDictonary, error) {
-	p := os.ExpandEnv(s)
-	f, err := os.Stat(p)
-	if err == nil && f.IsDir() {
-		return nil, fmt.Errorf("quotes db path \"%s\" is a directory", p)
-	}
-	if err != nil {
-		if err := ioutil.WriteFile(p, []byte("\n"), 0640); err != nil {
-			return nil, fmt.Errorf("could not create quotes db \"%s\", %s", p, err.Error())
-		}
-	}
-	l, err := ioutil.ReadFile(p)
-	if err != nil {
-		return nil, fmt.Errorf("could not read quotes db \"%s\", %s", p, err.Error())
-	}
-	q := quoteDictonary(strings.Split(string(l), "\n"))
-	return &q, nil
-}
-
-func (q *quoteDictonary) downloadQuote(s string) (string, error) {
+func (q *quotes) download(s string) error {
 	r, err := http.NewRequest("POST", s, strings.NewReader("method=getQuote&lang=en&format=json"))
 	if err != nil {
-		panic(fmt.Sprintf("could not download a new quote from \"%s\", %s.", s, err.Error()))
+		return xerrors.Errorf("could not download quote from \"%s\": %w", s, err)
 	}
-	x, cn := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
-	defer cn()
+	x, c := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
 	r = r.WithContext(x)
+	defer c()
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	b, err := http.DefaultClient.Do(r)
+	o, err := http.DefaultClient.Do(r)
+	if err != nil || o.Body == nil {
+		return xerrors.Errorf("could not download quote from \"%s\": %w", s, err)
+	}
+	defer o.Body.Close()
+	if o.StatusCode != http.StatusOK {
+		return fmt.Errorf("received a non 200 status code \"%d\"", o.StatusCode)
+	}
+	b, err := ioutil.ReadAll(o.Body)
 	if err != nil {
-		return "", err
+		return xerrors.Errorf("could not read quote from \"%s\": %w", s, err)
 	}
-	defer b.Body.Close()
-	if b.StatusCode != 200 {
-		return "", fmt.Errorf("server returned a non ok status code \"%d\"", b.StatusCode)
+	m := make(map[string]string)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return xerrors.Errorf("could not read quote from \"%s\": %w", s, err)
 	}
-	d, err := ioutil.ReadAll(b.Body)
-	if err != nil {
-		return "", nil
-	}
-	n := make(map[string]interface{})
-	err = json.Unmarshal(d, &n)
-	if err != nil {
-		return "", nil
-	}
-	v, ok := n["quoteText"]
+	v, ok := m["quoteText"]
 	if !ok {
-		return "", fmt.Errorf("could not find json key \"quoteText\"")
+		return fmt.Errorf("could not find json key \"quoteText\"")
 	}
-	t, ok := v.(string)
-	if !ok {
-		return "", fmt.Errorf("json key \"quoteText\" is not a string")
+	q.add(v)
+	if a, ok := m["quoteAuthor"]; ok {
+		fmt.Fprintf(os.Stdout, "%s\n  - %s\n", v, a)
 	}
-	c := true
-	for _, l := range *q {
-		if strings.ToLower(l) == strings.ToLower(t) {
-			c = false
-		}
-	}
-	if c {
-		*q = append(*q, t)
-	}
-	if i, ok := n["quoteAuthor"]; ok {
-		if a, ok := i.(string); ok {
-			t = fmt.Sprintf("%s\n\t- %s", t, a)
-		}
-	}
-	return t, nil
+	return nil
 }
