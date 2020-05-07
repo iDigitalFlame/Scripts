@@ -1,4 +1,21 @@
 #!/usr/bin/python3
+# Python Site Scanner
+#
+# Copyright (C) 2020 iDigitalFlame
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
 """
     PyCrawl
@@ -14,7 +31,6 @@ import DNS
 import time
 import requests
 import threading
-
 
 from bs4 import BeautifulSoup
 
@@ -34,13 +50,13 @@ class PyCrawl(threading.Thread):
         HOOKS
 
         onget  - on url get (pycrawl, url) replaced by on find          >>
-        onfind - on page find (pycrzwl, url, referurl)
-        onsearch - on page text search (pycrawl, url, pagetext)
+        onfind - on page find (pycrzwl, url, referurl)                  >>
+        onsearch - on page text search (pycrawl, url, pagetext)         >>
         onfail - on page failure (pycrawl, fail)                        >>
-        onerror - on page error (pycrawl, url, exception)
+        onerror - on page error (pycrawl, url, exception)               >>
         onpass - on page before search (pycrawl, url, pagetext)         >>
         onstart - on program start (pycrawl)                            >>
-        onend - on program end (pycrawl)
+        onend - on program end (pycrawl)                                >>
         oncheck - on page check for valid (pycrawl, url, pagetext)      >>
 
     """
@@ -299,8 +315,8 @@ def _dnslookup(name, dnsserver):
     return None
 
 
-def test(tesrss="aa"):
-    print(tesrss)
+def test(test="aa"):
+    print(test)
 
 
 def test1(test, url):
@@ -310,7 +326,7 @@ def test1(test, url):
 
 if __name__ == "__main__":
     a = PyCrawl(
-        "losynth.com",
+        "idigitalflame.com",
         searchsubs=["mail", "www"],
         debug=0,
         onstart=test,
@@ -318,4 +334,4 @@ if __name__ == "__main__":
         oncheck=test1,
     )
     a.start()
-    a.valid("https://www.losynth.com/")
+    a.valid("https://idigitalflame.com/")

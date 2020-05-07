@@ -1,15 +1,30 @@
 #!/usr/bin/python3
+# Copyright (C) 2020 iDigitalFlame
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
 """
     SiteSearch.py
     Written by iDigitalFlame for the Scorebot Project
 
     Scans through a site looking for <a href=""> (links) internal to the site.
-    Pages that are sccaned are added to the 'pages' var.  Pages that have failed or are unreachable are in 'failed'
+    Pages that are scanned are added to the 'pages' var.  Pages that have failed or are unreachable are in 'failed'
 
     A page is considered 'unreachable' if any of the following conditions occur:
         - A HTTP Response that is NOT 200 is received
-        - The page URL is located on a seperate domain or subdomain that the sitebase
+        - The page URL is located on a separate domain or subdomain that the sitebase
         - The page URL is higher up in the URL structure that the sitebase
         - The page is not a text or html based file
 
@@ -30,14 +45,14 @@
         passwordfm= (Default:None; The input name of the password textbox)
         debug= (Default:False; Shows Debug/Verbose messages on the console)
         forms= (Default:True; Searches and captures form paths/verbs/inputs with urls)
-        timeout= (Default:6; The Cnnection and read timeouts used by Requests)
+        timeout= (Default:6; The Connection and read timeouts used by Requests)
         keywords= (Default:10; The amount of keywords to gather)
         maxpages= (Default:0; The max amount of pages to gather (Login page does not count). 0 is no limit)
         fullpath= (Default:False;) Changes the way that urls are stored in the JSON.  Defaults to false (no lead url)
 
     Notes:
         maxpages will only stop the scan if the count of scanned pages equals this number.
-        Pages with a smaller number will stop when they are done.  Form actions count aganist this value.
+        Pages with a smaller number will stop when they are done.  Form actions count against this value.
 
     Example with login:
         Scan and search a Orange HRM site with login. (Credentials in this example are admin/chiapet1)
@@ -63,9 +78,9 @@
     The script can also be ran to append searched entries to a CTF json file.
     Using this syntax
 
-    python SiteSearch.py <jsonfile.json>
+    python sitesearch.py <jsonfile.json>
     -or-
-    SiteSearch.py <jsonfile.json>
+    sitesearch.py <jsonfile.json>
 
     Replace <jsonfile.json> with the full or absolute path to your file.
     The contents will be written in the same file and the original will be backed up and named <jsonfile.json>.bak

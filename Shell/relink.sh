@@ -1,6 +1,21 @@
 #!/usr/bin/bash
 # Relinks files to their respective directories.
-# iDigitalFlame
+#
+# Copyright (C) 2020 iDigitalFlame
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
 DEBUG=0
 
@@ -27,7 +42,7 @@ list() {
     fl=$(find "$fc" -type f -print)
     for file in $fl; do
         fp=$(printf "$file" | awk "{gsub(\"${fc}\", \"\"); print \$1}")
-        if ! [ -z $(echo $fp | grep -vE '\.(nlk|nolink)$' | grep -vE '^\/\.git(\/|ignore$|config$)' | grep -vE '^\/(LICENSE|license)$' | grep -vE '^\/[a-zA-Z0-9_.]+\.(md|MD)$') ]; then
+        if ! [ -z $(echo $fp | grep -vE '\.(nlk|nolink)$' | grep -vE '^\/\.git(\/|ignore$|config$)' | grep -vE '^\/(LICENSE|license)$' | grep -vE '^\/[a-zA-Z0-9_.]+\.(md|MD|code-workspace)$') ]; then
             check "$ft$fp" "$fc$fp"
         fi
     done
