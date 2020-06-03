@@ -109,7 +109,12 @@ func main() {
 	fmt.Fprintln(os.Stdout, q.String())
 }
 func (q quotes) String() string {
-	return q[random.Intn(len(q))]
+	for {
+		s := q[random.Intn(len(q))]
+		if len(s) > 0 {
+			return s
+		}
+	}
 }
 func (q quotes) save(s string) error {
 	var (
