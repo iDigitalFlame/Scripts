@@ -301,7 +301,7 @@ class Exploit:
                     while thct < tc:
                         thr = ExploitThread(
                             self,
-                            targets[tst:tst + tct],
+                            targets[tst : tst + tct],
                             port,
                             con_type,
                             timeout,
@@ -315,9 +315,9 @@ class Exploit:
                         thct += 1
                         self.__threads.append(thr)
                     if tctr > 0:
-                        print(targets[(tc * tct) + tctr - 1:])
+                        print(targets[(tc * tct) + tctr - 1 :])
                         self.__threads[0].targets.extend(
-                            targets[(tc * tct) + tctr - 1:]
+                            targets[(tc * tct) + tctr - 1 :]
                         )
                     for thread in self.__threads:
                         thread.start()
@@ -362,22 +362,22 @@ class Exploit:
             tgrvp += 1
         if not trgv:
             return None
-        tss = rv.join(trang[0:trgv[1]])
+        tss = rv.join(trang[0 : trgv[1]])
         if trgv[1] < len(trang):
-            tse = rv.join(trang[trgv[1] + 1:])
+            tse = rv.join(trang[trgv[1] + 1 :])
         else:
             tse = None
         iss = trgv[0].find("-")
         if rv == ".":
             try:
                 pss = int(trgv[0][:iss])
-                pse = int(trgv[0][iss + 1:])
+                pse = int(trgv[0][iss + 1 :])
             except ValueError:
                 return None
         else:
             try:
                 pss = int(trgv[0][:iss], 16)
-                pse = int(trgv[0][iss + 1:], 16)
+                pse = int(trgv[0][iss + 1 :], 16)
             except ValueError:
                 return None
         for x in range(pss, pse + 1):

@@ -39,29 +39,29 @@ fl = None
 if len(sys.argv) == 3:
     fl = sys.argv[2]
 
-for l in rd.split("\n"):
-    if len(l) >= 1 and (l[0] == "#" or l[0] == ";"):
-        cm.append(l)
-    elif len(l) >= 2 and l[0] == "/" and l[1] == "/":
-        cm.append(l)
+for p in rd.split("\n"):
+    if len(p) >= 1 and (p[0] == "#" or p[0] == ";"):
+        cm.append(p)
+    elif len(p) >= 2 and p[0] == "/" and p[1] == "/":
+        cm.append(p)
     else:
         ma = None
-        if "," in l and (mxt is None or mxt == ",") and (fl is None or fl == ","):
-            ma = l.index(",")
+        if "," in p and (mxt is None or mxt == ",") and (fl is None or fl == ","):
+            ma = p.index(",")
             mxt = ","
-        elif "=" in l and (mxt is None or mxt == "=") and (fl is None or fl == "="):
-            ma = l.index("=")
+        elif "=" in p and (mxt is None or mxt == "=") and (fl is None or fl == "="):
+            ma = p.index("=")
             mxt = "="
         if ma is not None:
             mx = max(mx, ma)
-            ps = l.split(mxt)
+            ps = p.split(mxt)
             if len(ps) > 0:
                 pl[ps[0]] = mxt.join(ps[1:])
                 sl.append(ps[0])
             else:
-                sl.append(l)
+                sl.append(p)
         else:
-            sl.append(l)
+            sl.append(p)
 
 if len(sys.argv) == 2:
     sl.sort(key=len)
