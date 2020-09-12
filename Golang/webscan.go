@@ -21,14 +21,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
-	"path"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -36,9 +36,6 @@ import (
 )
 
 const (
-	link = `
-<div id="newscan"><a href="%s/?scan=do" target="_blank">Start a new Scan</a></div>
-<div id="list"><h3>Previous Scans</h3>`
 	usage = `Web Scanner and File Host
 
 Usage:
@@ -61,7 +58,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.`
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+`
 	footer = `</div></html>`
 	script = `
 <script type="text/javascript">setTimeout(function(){document.location=document.location},3000);</script>
@@ -107,29 +105,30 @@ func main() {
 		u, d, b, l, a string
 		args          = flag.NewFlagSet("Files Pruner", flag.ExitOnError)
 	)
+
+	args.Usage = func() {
+		os.Stdout.WriteString(usage)
+		os.Exit(2)
+	}
 	args.StringVar(&a, "a", "", "Scan binary arguments.")
 	args.StringVar(&l, "l", "0.0.0.0:80", "Address to listen on.")
 	args.StringVar(&u, "b", "", "URL to use as the base web URL path.")
 	args.StringVar(&d, "d", "/tmp/scans/", "Directory to save scans to.")
 	args.StringVar(&b, "e", "/usr/bin/scanimage", "Binary to use for scanning.")
-	args.Usage = func() {
-		fmt.Fprintln(os.Stderr, usage)
-		os.Exit(2)
-	}
 
 	if err := args.Parse(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+		os.Stderr.WriteString("Error: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 
 	s, err := NewScanner(d, u, l, b, strings.Split(a, " ")...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+		os.Stderr.WriteString("Error: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 
 	if err := s.Listen(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+		os.Stderr.WriteString("Error: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 }
@@ -138,11 +137,11 @@ func (j *job) process() {
 	j.File.Close()
 	j.cancel()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occurred when running scan: %s\n!", err.Error())
+		os.Stderr.WriteString("Error occurred when running scan: " + err.Error() + "!\n")
 		atomic.StoreUint32(&j.Done, 2)
-	} else {
-		atomic.StoreUint32(&j.Done, 1)
+		return
 	}
+	atomic.StoreUint32(&j.Done, 1)
 }
 
 // Listen starts the WebScanner and will block until a OS signal is received. This function will also close
@@ -176,9 +175,9 @@ func (s *Scanner) serve(w http.ResponseWriter, r *http.Request) {
 	)
 	if len(i) > 0 && ok {
 		if atomic.LoadUint32(&j.Done) == 0 {
-			fmt.Fprintf(w, header)
-			fmt.Fprintf(w, script)
-			fmt.Fprintf(w, footer)
+			w.Write([]byte(header))
+			w.Write([]byte(script))
+			w.Write([]byte(footer))
 			return
 		}
 		delete(s.Jobs, i)
@@ -186,17 +185,17 @@ func (s *Scanner) serve(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		http.Redirect(w, r, fmt.Sprintf("%s/%s", s.URL, j.Path), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, s.URL+"/"+j.Path, http.StatusTemporaryRedirect)
 		return
 	}
 	if len(n) > 0 {
 		var (
-			j   = &job{Path: fmt.Sprintf("scan-%s.jpg", time.Now().Format(format))}
+			j   = &job{Path: "scan-" + time.Now().Format(format) + ".jpg"}
 			err error
 		)
-		if j.File, err = os.Create(path.Join(s.Dir, j.Path)); err != nil {
+		if j.File, err = os.Create(filepath.Join(s.Dir, j.Path)); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			fmt.Fprintf(os.Stderr, "Error occurred when attempting to scan: %s!\n", err.Error())
+			os.Stderr.WriteString("Error occurred when attempting to scan: " + err.Error() + "!\n")
 			return
 		}
 		j.ctx, j.cancel = context.WithTimeout(s.ctx, timeout)
@@ -204,18 +203,16 @@ func (s *Scanner) serve(w http.ResponseWriter, r *http.Request) {
 		j.Process.Args, j.Process.Stdout = s.Args, j.File
 		s.Jobs[n] = j
 		go j.process()
-		http.Redirect(w, r, fmt.Sprintf("%s/?job=%s", s.URL, n), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, s.URL+"/?job="+n, http.StatusTemporaryRedirect)
 		return
 	}
-	p := r.URL.Path
-	if p[len(p)-1] != '/' {
-		r.URL.Path, p = fmt.Sprintf("%s/", p), r.URL.Path
-	}
-	if z, err := os.Stat(path.Join(s.Dir, path.Clean(p))); err != nil || z.IsDir() {
-		fmt.Fprintf(w, header)
-		fmt.Fprintf(w, link, s.URL)
+	if len(r.URL.Path) <= 1 {
+		w.Write([]byte(header))
+		w.Write([]byte(
+			`<div id="newscan"><a href="` + s.URL + `/?scan=do" target="_blank">Start a new Scan</a></div><div id="list"><h3>Previous Scans</h3>`,
+		))
 		s.dir.ServeHTTP(w, r)
-		fmt.Fprintf(w, footer)
+		w.Write([]byte(footer))
 		return
 	}
 	s.dir.ServeHTTP(w, r)
@@ -225,19 +222,20 @@ func (s *Scanner) serve(w http.ResponseWriter, r *http.Request) {
 func NewScanner(dir, url, bind, bin string, args ...string) (*Scanner, error) {
 	x, err := exec.LookPath(bin)
 	if err != nil {
-		return nil, fmt.Errorf("scan binary %q does not exist: %w", bin, err)
+		return nil, errors.New(`scan binary "` + bin + `" does not exist: ` + err.Error())
 	}
 	i, err := os.Stat(dir)
 	if err == nil && !i.IsDir() {
-		return nil, fmt.Errorf("path %q is not a directory", dir)
+		return nil, errors.New(`path "` + dir + `" is not a directory`)
 	}
 	if err != nil {
 		if err := os.Mkdir(dir, 0750); err != nil {
-			return nil, fmt.Errorf("could not create directory %q: %w", dir, err)
+			return nil, errors.New(`could not create directory "` + dir + `": ` + err.Error())
 		}
 	}
 	s := &Scanner{
 		dir:  http.FileServer(http.Dir(dir)),
+		Dir:  dir,
 		URL:  url,
 		Jobs: make(map[string]*job),
 		Args: []string{x},

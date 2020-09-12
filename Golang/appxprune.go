@@ -1,3 +1,5 @@
+// +build windows
+
 // appxprune.go
 // Removes Windows 10 Appx Packages
 //
@@ -16,11 +18,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
+//
+// Build Options Example:
+//  env GOOS=windows go build -o prune.exe -ldflags '-w -s -H=windowsgui' -trimpath appxprune.go
 
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -28,30 +32,23 @@ import (
 	"syscall"
 )
 
-const (
-	list    = `packages.txt`
-	command = `Get-AppxPackage "%s" | Remove-AppxPackage`
-)
-
 func main() {
-	s := list
+	s := "packages.txt"
 	if len(os.Args) == 2 {
 		s = os.Args[1]
 	}
 
-	i, err := os.Stat(s)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not open package list %q: %s\n", s, err.Error())
+	if i, err := os.Stat(s); err != nil {
+		os.Stderr.WriteString(`Could not open package list "` + s + `": ` + err.Error() + "!\n")
 		os.Exit(1)
-	}
-	if i.IsDir() {
-		fmt.Fprintf(os.Stderr, "Package list %q is not a file!\n", s)
+	} else if i.IsDir() {
+		os.Stderr.WriteString(`Package list "` + s + `" is not a file!` + "\n")
 		os.Exit(1)
 	}
 
 	d, err := ioutil.ReadFile(s)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not open package list %q: %s\n", s, err.Error())
+		os.Stderr.WriteString(`Could not open package list "` + s + `": ` + err.Error() + `!` + "\n")
 		os.Exit(1)
 	}
 
@@ -59,15 +56,15 @@ func main() {
 		if len(o) == 0 {
 			continue
 		}
-		var (
-			n = strings.Replace(strings.Replace(o, "\n", "", -1), "\r", "", -1)
-			e = exec.Command("powershell.exe", "-Command", fmt.Sprintf(command, n))
-		)
-		e.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		if err := e.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "Removing package %q raised the error: %s\n", n, err.Error())
+		n := strings.Replace(strings.Replace(o, "\n", "", -1), "\r", "", -1)
+		if len(n) == 0 {
 			continue
 		}
-		fmt.Printf("Removed package %q.\n", n)
+		e := exec.Command("powershell.exe", "-Command", `Get-AppxPackage "`+n+`" | Remove-AppxPackage`)
+		e.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		if err := e.Run(); err != nil {
+			os.Stderr.WriteString(`Removing package "` + n + `" raised an error: ` + err.Error() + `!` + "\n")
+			continue
+		}
 	}
 }

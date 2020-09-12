@@ -22,8 +22,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -32,12 +32,15 @@ import (
 	"time"
 )
 
+type quotes []string
+
 const (
 	api    = "http://www.forismatic.com/api/1.0/"
 	body   = "method=getQuote&lang=en&format=json"
 	config = "$HOME/.config/quotes.db"
+)
 
-	usage = `Motivate
+const usage = `Motivate
 
 Usage:
   -f <db>    Quotes file path.
@@ -57,12 +60,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.`
-)
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+`
 
 var random = rand.New(rand.NewSource(time.Now().Unix() ^ 2))
-
-type quotes []string
 
 func main() {
 	var (
@@ -73,7 +74,7 @@ func main() {
 	)
 
 	args.Usage = func() {
-		fmt.Fprintln(os.Stderr, usage)
+		os.Stdout.WriteString(usage)
 		os.Exit(2)
 	}
 	args.StringVar(&f, "f", config, "Quotes file path.")
@@ -81,32 +82,29 @@ func main() {
 	args.BoolVar(&d, "n", false, "Download a quote from the Internet.")
 
 	if err := args.Parse(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+		os.Stderr.WriteString("Error: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 
 	if err := q.load(f); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+		os.Stderr.WriteString(`Error loading "` + f + `": ` + err.Error() + "\n")
 		os.Exit(1)
 	}
 
-	if len(a) > 0 {
+	switch {
+	case len(a) > 0:
 		if err := q.add(a, f); err != nil {
-			fmt.Fprintf(os.Stderr, "Error during save: %s\n", err.Error())
+			os.Stderr.WriteString("Error during save: " + err.Error() + "\n")
 			os.Exit(1)
 		}
-		os.Exit(0)
-	}
-
-	if d {
+	case d:
 		if err := q.download(api, f); err != nil {
-			fmt.Fprintf(os.Stderr, "Error during download: %s\n", err.Error())
+			os.Stderr.WriteString("Error during download: " + err.Error() + "\n")
 			os.Exit(1)
 		}
-		os.Exit(0)
+	default:
+		os.Stdout.WriteString(q.String() + "\n")
 	}
-
-	fmt.Fprintln(os.Stdout, q.String())
 }
 func (q quotes) String() string {
 	for {
@@ -118,45 +116,51 @@ func (q quotes) String() string {
 }
 func (q quotes) save(s string) error {
 	var (
-		f      = os.ExpandEnv(s)
-		w      *os.File
-		i, err = os.Stat(f)
+		f   = os.ExpandEnv(s)
+		w   *os.File
+		err error
 	)
-	if err != nil || i.IsDir() {
-		return fmt.Errorf("file path %q is not valid", f)
+	if i, err := os.Stat(f); err != nil {
+		return errors.New(`could not open file "` + f + `": ` + err.Error())
+	} else if i.IsDir() {
+		return errors.New(`path "` + f + `" is not a file`)
 	}
 	if w, err = os.OpenFile(f, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640); err != nil {
-		return fmt.Errorf("could not open file %q: %w", f, err)
+		return errors.New(`could not open file "` + f + `": ` + err.Error())
 	}
-	defer w.Close()
 	for x := range q {
 		n := strings.TrimSpace(q[x])
 		if len(n) == 0 {
 			continue
 		}
-		if _, err := fmt.Fprintln(w, n); err != nil {
-			return fmt.Errorf("could not save file %q: %w", f, err)
+		if _, err = w.WriteString(n + "\n"); err != nil {
+			break
 		}
+	}
+	if w.Close(); err != nil {
+		return errors.New(`could not save file "` + f + `": ` + err.Error())
 	}
 	return nil
 }
 func (q *quotes) load(s string) error {
-	var (
-		b      []byte
-		f      = os.ExpandEnv(s)
-		i, err = os.Stat(f)
-	)
-	if err != nil || i.IsDir() {
-		return fmt.Errorf("file path %q is not valid", f)
+	f := os.ExpandEnv(s)
+	if i, err := os.Stat(f); err != nil {
+		return errors.New(`could not open file "` + f + `": ` + err.Error())
+	} else if i.IsDir() {
+		return errors.New(`path "` + f + `" is not a file`)
 	}
-	if b, err = ioutil.ReadFile(f); err != nil {
-		return fmt.Errorf("could not read file %q: %s", f, err)
+	b, err := ioutil.ReadFile(f)
+	if err != nil {
+		return errors.New(`could not read file "` + f + `": ` + err.Error())
 	}
 	*q = strings.Split(string(b), "\n")
 	return nil
 }
 func (q *quotes) add(s, f string) error {
 	c := strings.TrimSpace(strings.ToLower(s))
+	if len(c) == 0 {
+		return nil
+	}
 	for i := range *q {
 		if strings.ToLower((*q)[i]) == c {
 			return nil
@@ -167,44 +171,37 @@ func (q *quotes) add(s, f string) error {
 }
 func (q *quotes) download(s, f string) error {
 	var (
-		x, c   = context.WithTimeout(context.Background(), time.Duration(5*time.Second))
-		r, err = http.NewRequestWithContext(x, http.MethodPost, api, strings.NewReader(body))
+		x, c = context.WithTimeout(context.Background(), time.Duration(2*time.Second))
+		r, _ = http.NewRequestWithContext(x, http.MethodPost, api, strings.NewReader(body))
 	)
-	defer c()
-	if err != nil {
-		return fmt.Errorf("could not download quote from %q: %w", s, err)
-	}
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	o, err := http.DefaultClient.Do(r)
-	if err != nil {
-		return fmt.Errorf("could not download quote from %q: %w", s, err)
-	}
-	if o.Body == nil {
-		return fmt.Errorf("could not download quote from %q: empty response", s)
-	}
-	defer o.Body.Close()
-	if o.StatusCode != http.StatusOK {
-		return fmt.Errorf("could not download quote from %q: status %d received", s, o.StatusCode)
+	switch c(); {
+	case err != nil:
+		return errors.New(`could not download quote from "` + s + `": ` + err.Error())
+	case o.Body == nil:
+		return errors.New(`could not download quote from "` + s + `": empty response`)
+	case o.StatusCode != http.StatusOK:
+		return errors.New(`could not download quote from "` + s + `": status "` + o.Status + `" received`)
 	}
 	b, err := ioutil.ReadAll(o.Body)
-	if err != nil {
-		return fmt.Errorf("could not read quote from %q: %w", s, err)
+	if o.Body.Close(); err != nil {
+		return errors.New(`could not read quote from "` + s + `": ` + err.Error())
 	}
 	m := make(map[string]string)
-	if err := json.Unmarshal(b, &m); err != nil {
-		return fmt.Errorf("could not read quote from %q: %w", s, err)
+	if err = json.Unmarshal(b, &m); err != nil {
+		return errors.New(`could not read quote from "` + s + `": ` + err.Error())
 	}
 	v, ok := m["quoteText"]
 	if !ok {
-		return fmt.Errorf(`could not find json key "quoteText"`)
+		return errors.New(`could not find JSON key "quoteText"`)
 	}
-	if err := q.add(v, f); err != nil {
+	if err = q.add(v, f); err != nil {
 		return err
 	}
+	os.Stdout.WriteString(v + "\n")
 	if a, ok := m["quoteAuthor"]; ok {
-		fmt.Fprintf(os.Stdout, "%s\n  - %s\n", v, a)
-	} else {
-		fmt.Fprintln(os.Stdout, v)
+		os.Stdout.WriteString(" - " + a + "\n")
 	}
 	return nil
 }

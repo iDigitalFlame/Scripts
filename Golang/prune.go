@@ -20,12 +20,13 @@
 package main
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -51,7 +52,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.`
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+`
 
 func main() {
 	var (
@@ -59,57 +61,65 @@ func main() {
 		d, f string
 		args = flag.NewFlagSet("Files Pruner", flag.ExitOnError)
 	)
+
+	args.Usage = func() {
+		os.Stderr.WriteString(usage)
+		os.Exit(2)
+	}
 	args.StringVar(&d, "d", "", "Directory to scan.")
 	args.StringVar(&f, "f", "", "Filter scan to files that contain this string.")
 	args.IntVar(&t, "t", 10, "Day limit for when file is deleted, defaults to 10.")
-	args.Usage = func() {
-		fmt.Fprintln(os.Stderr, usage)
-		os.Exit(2)
-	}
+
 	if err := args.Parse(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+		os.Stderr.WriteString("Error: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 
 	if len(d) == 0 {
-		fmt.Fprintf(os.Stderr, "Directory must be specified!\n")
+		os.Stderr.WriteString("Invalid directory path specified!\n")
 		os.Exit(1)
 	}
 
-	if err := check(d, f, uint16(t)); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s", err.Error())
+	if err := check(d, strings.ToLower(f), uint16(t)); err != nil {
+		os.Stderr.WriteString("Error: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 }
-func getDays(f os.FileInfo) uint16 {
-	i := f.Sys().(*syscall.Stat_t)
+func days(f os.FileInfo) uint16 {
+	i, ok := f.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0
+	}
 	t := time.Unix(int64(i.Ctim.Sec), int64(i.Ctim.Nsec))
 	return uint16(math.Floor(time.Since(t).Hours()/24) + 1)
 }
 func check(s, f string, d uint16) error {
 	l, err := ioutil.ReadDir(s)
 	if err != nil {
-		return fmt.Errorf("could not read directory listing for %q: %s", s, err.Error())
+		return errors.New(`could not read directory listing for "` + s + `": ` + err.Error())
 	}
 	var r, p, k int
 	for _, b := range l {
-		if b.IsDir() {
-			continue
-		}
-		if len(f) > 0 && !strings.Contains(b.Name(), f) {
+		if b.IsDir() || (len(f) > 0 && !strings.Contains(strings.ToLower(b.Name()), f)) {
 			continue
 		}
 		p++
-		if o := getDays(b); o > d {
-			fmt.Printf("File %q is %d days old, limit is %d, removing!\n", b.Name(), o, d)
+		if o := days(b); o > d {
+			if len(f) > 0 {
+				os.Stdout.WriteString("Filter [" + f + "] ")
+			}
+			os.Stdout.WriteString(`File "` + b.Name() + `" is ` + strconv.Itoa(int(o)) + " days old, limit is " + strconv.Itoa(int(d)) + ", removing!\n")
 			if err := os.Remove(path.Join(s, b.Name())); err != nil {
-				return fmt.Errorf("could not remove file %q: %s", b.Name(), err.Error())
+				return errors.New(`could not remove file "` + b.Name() + `": ` + err.Error())
 			}
 			r++
-		} else {
-			k++
+			continue
 		}
+		k++
 	}
-	fmt.Printf("Done. %d Scanned, %d Kept, %d Removed.\n", p, k, r)
+	if len(f) > 0 {
+		os.Stdout.WriteString("Filter [" + f + "] ")
+	}
+	os.Stdout.WriteString("Scan complete: " + strconv.Itoa(p) + " Scanned, " + strconv.Itoa(k) + " Kept, " + strconv.Itoa(r) + " Removed.\n")
 	return nil
 }
