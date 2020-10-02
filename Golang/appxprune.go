@@ -32,18 +32,12 @@ import (
 	"syscall"
 )
 
+const defaultFile = `packages.txt`
+
 func main() {
-	s := "packages.txt"
+	s := defaultFile
 	if len(os.Args) == 2 {
 		s = os.Args[1]
-	}
-
-	if i, err := os.Stat(s); err != nil {
-		os.Stderr.WriteString(`Could not open package list "` + s + `": ` + err.Error() + "!\n")
-		os.Exit(1)
-	} else if i.IsDir() {
-		os.Stderr.WriteString(`Package list "` + s + `" is not a file!` + "\n")
-		os.Exit(1)
 	}
 
 	d, err := ioutil.ReadFile(s)
