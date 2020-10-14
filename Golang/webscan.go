@@ -160,6 +160,8 @@ func (s *Scanner) Listen() error {
 	case <-l:
 	case <-s.ctx.Done():
 	}
+	signal.Stop(l)
+	close(l)
 	s.Server.Shutdown(s.ctx)
 	s.Server.Close()
 	s.cancel()
