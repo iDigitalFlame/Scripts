@@ -24,11 +24,6 @@ if [ $# -ne 2 ]; then
     exit 1
 fi
 
-if [ $UID -ne 0 ]; then
-    printf "Only root can do this!\n"
-    exit 1
-fi
-
 if [ $# -eq 3 ]; then
     DEBUG=1
 fi
@@ -39,10 +34,9 @@ list() {
     fi
     fc=${1%/}
     ft=${2%/}
-    fl=$(find "$fc" -type f -print)
-    for file in $fl; do
+    for file in $(find "$fc" -type f -print); do
         fp=$(printf "$file" | awk "{gsub(\"${fc}\", \"\"); print \$1}")
-        if ! [ -z $(echo $fp | grep -vE '\.(nlk|nolink)$' | grep -vE '^\/\.git(\/|ignore$|config$)' | grep -vE '^\/(LICENSE|license)$' | grep -vE '^\/[a-zA-Z0-9_.]+\.(md|MD|code-workspace)$') ]; then
+        if ! [ -z $(echo $fp | grep -vE '\.(nlk|nolink)$|^\/\.git(\/|ignore$|config$)|^\/(LICENSE|license)$|^\/[a-zA-Z0-9_.]+\.(md|vscode|MD|code-workspace)$') ]; then
             check "$ft$fp" "$fc$fp"
         fi
     done
@@ -56,11 +50,16 @@ link() {
     rm -f "$1" 2> /dev/null
     fd=$(dirname "$1")
     if ! [ -d "$fd" ]; then
+        printf "Making $fd\n"
         mkdir -p "$fd" 2> /dev/null
         if [ $? -ne 0 ]; then
             panic "Cannot create directory \"$fd\"!"
         fi
-        chmod 555 "$fd"
+        if [ $UID -eq 0 ]; then
+            chmod 555 "$fd"
+        else
+            chmod 755 "$fd"
+        fi
     fi
     ln -s "$2" "$1"
     if [ $? -ne 0 ]; then
