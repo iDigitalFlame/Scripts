@@ -15,27 +15,33 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-import os
-import sys
-import glob
-
-
-def _get_files(dir_path, name):
-    if not os.path.isdir(dir_path):
-        print('[!] "%s" does not exist or is not a directory!' % dir_path)
-        sys.exit(1)
-    _files_path = os.path.join(os.path.abspath(dir_path), "**")
-    _file_no = 0
-    for _file in glob.glob(_files_path):
-        if os.path.isfile(_file):
-            _fn = os.path.basename(_file)
-            _fn = _fn[: _fn.find(".")]
-            _fnn = _file.replace(_fn, "%s-%d" % (name, _file_no))
-            _file_no = _file_no + 1
-            print('Moving "%s" to "%s"..' % (_file, _fnn))
-            os.rename(_file, _fnn)
-
+from glob import glob
+from os import rename
+from sys import argv, exit, stderr
+from os.path import isdir, basename, join, isfile, splitext, abspath
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 3:
-        _get_files(sys.argv[1], sys.argv[2])
+    if len(argv) < 2:
+        print(f"usage {argv[0]} <path> [prefix]")
+        exit(2)
+
+    if not isdir(argv[1]):
+        print(f'Path "{argv[1]} does not exist or is not a directory!', file=stderr)
+        exit(1)
+
+    inc = 0
+    prefix = ""
+    if len(argv) >= 3:
+        prefix = f"{argv[2]}-"
+    for f in glob(join(abspath(argv[1]), "**")):
+        if not isfile(f):
+            continue
+        _, e = splitext(basename(f))
+        r = f"{prefix}{inc}{e.lower()}"
+        try:
+            print(f'Moving "{f}" to "{r}"...')
+            rename(f, r)
+        except OSError as err:
+            print(f'Cannot move "{f}" to "{r}": {err}!', file=stderr)
+            exit(1)
+        inc += 1

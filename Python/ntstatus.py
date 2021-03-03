@@ -6580,12 +6580,12 @@ mappings = {
 }
 
 if len(argv) <= 1:
-    print("%s <status value>" % argv[0], file=stderr)
+    print(f"{argv[0]} <status value>", file=stderr)
     exit(1)
 
 c = argv[1].lower()
 
-print('The result "%s" matches:' % c)
+print(f'The result "{c}" matches:')
 for k, v in mappings.items():
     if c in k.lower():
-        print("%s - %s\n\t%s\n" % (k, v[0], v[1]))
+        print(f"{k}: {v[0]}\n    {v[1]}\n")

@@ -83,6 +83,6 @@ del block
 del current
 
 for b in result:
-    print("printf '%s'%s" % (b, output))
+    print(f"printf '{b}'{output}")
 
 exit(0)

@@ -31,15 +31,15 @@ except ImportError:
 
 class Client:
     @classmethod
-    def close(self):
+    def close(cls):
         None
 
     @classmethod
-    def send(self, data):
+    def send(cls, data):
         return None
 
     @classmethod
-    def exec_cmd(self, command):
+    def exec_cmd(cls, command):
         return None
 
 
