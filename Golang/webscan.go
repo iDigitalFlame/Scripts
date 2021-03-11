@@ -78,13 +78,12 @@ body{padding:10px 0 0 0;font-size:12pt;font-family:Arial;background:#9b9b9b;marg
 )
 
 type job struct {
-	Path    string
+	ctx     context.Context
 	File    *os.File
-	Done    uint32
 	Process *exec.Cmd
-
-	ctx    context.Context
-	cancel context.CancelFunc
+	cancel  context.CancelFunc
+	Path    string
+	Done    uint32
 }
 
 // Scanner is a struct that represents a Web Scanner instance. This struct takes the place of a http.Server.
@@ -148,7 +147,7 @@ func (j *job) process() {
 // the server when it completes and will return any errors that occur during closing or starting the listening thread.
 func (s *Scanner) Listen() error {
 	var (
-		l   = make(chan os.Signal)
+		l   = make(chan os.Signal, 1)
 		err error
 	)
 	signal.Notify(l, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
