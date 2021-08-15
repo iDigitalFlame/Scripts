@@ -1,7 +1,7 @@
 // motivate.go
 // Outputs great quotes and messages.
 //
-// Copyright (C) 2020 iDigitalFlame
+// Copyright (C) 2021 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -116,15 +116,15 @@ func (q quotes) String() string {
 }
 func (q quotes) save(s string) error {
 	var (
-		f   = os.ExpandEnv(s)
-		w   *os.File
-		err error
+		f = os.ExpandEnv(s)
+		w *os.File
 	)
 	if i, err := os.Stat(f); err != nil {
 		return errors.New(`could not open file "` + f + `": ` + err.Error())
 	} else if i.IsDir() {
 		return errors.New(`path "` + f + `" is not a file`)
 	}
+	var err error
 	if w, err = os.OpenFile(f, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640); err != nil {
 		return errors.New(`could not open file "` + f + `": ` + err.Error())
 	}

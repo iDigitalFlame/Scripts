@@ -1,7 +1,9 @@
+// +build linux
+
 // prune.go
 // Files prune script, deletes files older than the specified amount of days.
 //
-// Copyright (C) 2020 iDigitalFlame
+// Copyright (C) 2021 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -39,7 +41,7 @@ Usage:
   -f [filter] Filter scan to files that contain this string.
   -t [days]   Day limit for when file is deleted, defaults to 10.
 
-Copyright (C) 2020 iDigitalFlame
+Copyright (C) 2021 iDigitalFlame
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -90,8 +92,9 @@ func days(f os.FileInfo) uint16 {
 	if !ok {
 		return 0
 	}
-	t := time.Unix(int64(i.Ctim.Sec), int64(i.Ctim.Nsec))
-	return uint16(math.Floor(time.Since(t).Hours()/24) + 1)
+	return uint16(math.Floor(time.Since(
+		time.Unix(int64(i.Mtim.Sec), int64(i.Mtim.Nsec)),
+	).Hours()/24) + 1)
 }
 func check(s, f string, d uint16) error {
 	l, err := ioutil.ReadDir(s)

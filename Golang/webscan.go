@@ -1,7 +1,7 @@
 // webscan.go
 // A web based scanning program that uses the "imgscan" linux binary to scan remotely.
 //
-// Copyright (C) 2020 iDigitalFlame
+// Copyright (C) 2021 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -78,20 +78,21 @@ body{padding:10px 0 0 0;font-size:12pt;font-family:Arial;background:#9b9b9b;marg
 )
 
 type job struct {
-	ctx     context.Context
+	ctx context.Context
+
 	File    *os.File
 	Process *exec.Cmd
 	cancel  context.CancelFunc
-	Path    string
-	Done    uint32
+
+	Path string
+	Done uint32
 }
 
 // Scanner is a struct that represents a Web Scanner instance. This struct takes the place of a http.Server.
 type Scanner struct {
-	URL  string
-	Dir  string
-	Jobs map[string]*job
-	Args []string
+	Dir, URL string
+	Jobs     map[string]*job
+	Args     []string
 
 	ctx    context.Context
 	dir    http.Handler
@@ -102,7 +103,7 @@ type Scanner struct {
 func main() {
 	var (
 		u, d, b, l, a string
-		args          = flag.NewFlagSet("Files Pruner", flag.ExitOnError)
+		args          = flag.NewFlagSet("WebScanner", flag.ExitOnError)
 	)
 
 	args.Usage = func() {
@@ -201,7 +202,7 @@ func (s *Scanner) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		j.ctx, j.cancel = context.WithTimeout(s.ctx, timeout)
 		j.Process = exec.CommandContext(j.ctx, s.Args[0])
-		j.Process.Args, j.Process.Stdout = s.Args, j.File
+		j.Process.Args, j.Process.Stdout, j.Process.Stderr = s.Args, j.File, os.Stderr
 		s.Jobs[n] = j
 		go j.process()
 		http.Redirect(w, r, s.URL+"/?job="+n, http.StatusTemporaryRedirect)
