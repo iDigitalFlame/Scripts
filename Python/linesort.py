@@ -15,19 +15,30 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-import sys
+from sys import exit, stderr, argv, stdout
 
-if len(sys.argv) <= 1:
-    print("%s <file>" % sys.argv[0], file=sys.stderr)
-    sys.exit(1)
 
-try:
-    rf = open(sys.argv[1], "r")
-    rd = rf.read()
-    rf.close()
-except IOError as err:
-    print(err, file=sys.stderr)
-    sys.exit(1)
+if len(argv) < 2:
+    print(f"{argv[0]} <file> [output]", file=stderr)
+    exit(1)
+
+
+with open(argv[1], "r") as f:
+    data = f.read()
+if not isinstance(data, str) or len(data) == 0:
+    print(f'File "{argv[1]}" is empty.')
+    exit(0)
+
+out = stdout
+if len(argv) == 3:
+    out = open(argv[2], "w")
+
+sep = None
+length = 0
+padding = 0
+values = dict()
+entries = list()
+comments = list()
 
 mx = 0
 mxt = None
@@ -35,59 +46,66 @@ cm = list()
 sl = list()
 pl = dict()
 
-fl = None
-if len(sys.argv) == 3:
-    fl = sys.argv[2]
 
-for p in rd.split("\n"):
-    if len(p) >= 1 and (p[0] == "#" or p[0] == ";"):
-        cm.append(p)
-    elif len(p) >= 2 and p[0] == "/" and p[1] == "/":
-        cm.append(p)
-    else:
-        ma = None
-        if "," in p and (mxt is None or mxt == ",") and (fl is None or fl == ","):
-            ma = p.index(",")
-            mxt = ","
-        elif "=" in p and (mxt is None or mxt == "=") and (fl is None or fl == "="):
-            ma = p.index("=")
-            mxt = "="
-        if ma is not None:
-            mx = max(mx, ma)
-            ps = p.split(mxt)
-            if len(ps) > 0:
-                pl[ps[0]] = mxt.join(ps[1:])
-                sl.append(ps[0])
-            else:
-                sl.append(p)
-        else:
-            sl.append(p)
+for line in data.split("\n"):
+    e = line.strip()
+    if len(e) == 0:
+        continue
+    if len(e) >= 1 and (e[0] == "#" or e[0] == ";"):
+        comments.append(e)
+        continue
+    if len(e) >= 2 and e[0] == "/" and e[1] == "/":
+        comments.append(e)
+        continue
+    if sep is None:
+        if "," in e:
+            print('[+] Set seperator to ",".', file=stderr)
+            sep = ","
+        elif "=" in e:
+            print('[+] Set seperator to "=".', file=stderr)
+            sep = "="
+    i = e.find(sep)
+    if i is None or i < 0:
+        entries.append(e)
+        continue
+    p = e.split(sep)
+    if p is None or len(p) == 0:
+        entries.append(p)
+        continue
+    length = max(i, length)
+    n = p[0].strip()
+    values[n] = sep.join(p[1:]).strip()
+    entries.append(n)
+    del n
+    del p
+    del i
+    del e
 
-if len(sys.argv) == 2:
-    sl.sort(key=len)
+entries.sort(key=lambda item: (item, len(item)))
 
-if mx > 0:
-    mxl = (mx // 4) * 4
-    if mxl < mx:
-        mx = mxl + 4
+if length > 0:
+    padding = (length // 4) * 4
+    if padding < length:
+        length = padding + 4
     print(
-        '[V] Detected delimiter "%s" with max line length of "%d"' % (mxt, mx),
-        file=sys.stderr,
+        f'[+] Detected delimiter "{sep}" with max line length of "{length}"',
+        file=stderr,
     )
-else:
-    mx = None
 
-for k in cm:
-    print(k)
-for k in sl:
-    if mx is not None:
-        if k in pl:
-            print("%s%s%s" % (k.ljust(mx), mxt, pl[k]))
-        else:
-            k1 = k.split(mxt)
-            if len(k1) == 2:
-                print("%s%s%s" % (k1[0].ljust(mx), mxt, k1[1]))
-            else:
-                print(k)
-    else:
-        print(k)
+for n in comments:
+    print(comments, file=out)
+
+for n in entries:
+    if sep is None:
+        print(n, file=out)
+        continue
+    if n not in values:
+        v = n.split(sep)
+        if v is None or len(v) < 2:
+            print(n, file=out)
+            continue
+        print(f"{v[0].ljust(padding)}{sep} {sep.join(v[1:])}", file=out)
+        continue
+    print(f"{n.ljust(padding)}{sep} {values[n]}", file=out)
+
+out.close()
