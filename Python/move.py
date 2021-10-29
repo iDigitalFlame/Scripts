@@ -18,7 +18,7 @@
 from glob import glob
 from os import rename
 from sys import argv, exit, stderr
-from os.path import isdir, basename, join, isfile, splitext, abspath
+from os.path import isdir, basename, join, isfile, splitext, abspath, exists
 
 if __name__ == "__main__":
     if len(argv) < 2:
@@ -40,6 +40,8 @@ if __name__ == "__main__":
         r = f"{prefix}{inc}{e.lower()}"
         try:
             print(f'Moving "{f}" to "{r}"...')
+            if exists(r):
+                raise IOError(f'Not overriting existing file "{r}"!')
             rename(f, r)
         except OSError as err:
             print(f'Cannot move "{f}" to "{r}": {err}!', file=stderr)
