@@ -1,7 +1,7 @@
 // motivate.go
 // Outputs great quotes and messages.
 //
-// Copyright (C) 2021 iDigitalFlame
+// Copyright (C) 2021 - 2022 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -47,7 +47,7 @@ Usage:
   -a <quote> Add a quote to the quotes file.
   -n         Download a quote from the Internet.
 
-Copyright (C) 2020 iDigitalFlame
+Copyright (C) 2020 - 2022 iDigitalFlame
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -149,7 +149,7 @@ func (q *quotes) load(s string) error {
 	} else if i.IsDir() {
 		return errors.New(`path "` + f + `" is not a file`)
 	}
-	b, err := ioutil.ReadFile(f)
+	b, err := os.ReadFile(f)
 	if err != nil {
 		return errors.New(`could not read file "` + f + `": ` + err.Error())
 	}
@@ -184,7 +184,7 @@ func (q *quotes) download(s, f string) error {
 	case o.StatusCode != http.StatusOK:
 		return errors.New(`could not download quote from "` + s + `": status "` + o.Status + `" received`)
 	}
-	b, err := ioutil.ReadAll(o.Body)
+	b, err := io.ReadAll(o.Body)
 	if o.Body.Close(); err != nil {
 		return errors.New(`could not read quote from "` + s + `": ` + err.Error())
 	}

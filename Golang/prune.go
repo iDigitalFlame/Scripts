@@ -1,9 +1,10 @@
+//go:build linux
 // +build linux
 
 // prune.go
 // Files prune script, deletes files older than the specified amount of days.
 //
-// Copyright (C) 2021 iDigitalFlame
+// Copyright (C) 2021 - 2022 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -24,7 +25,6 @@ package main
 import (
 	"errors"
 	"flag"
-	"io/ioutil"
 	"math"
 	"os"
 	"path"
@@ -41,7 +41,7 @@ Usage:
   -f [filter] Filter scan to files that contain this string.
   -t [days]   Day limit for when file is deleted, defaults to 10.
 
-Copyright (C) 2021 iDigitalFlame
+Copyright (C) 2021 - 2022 iDigitalFlame
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -92,12 +92,10 @@ func days(f os.FileInfo) uint16 {
 	if !ok {
 		return 0
 	}
-	return uint16(math.Floor(time.Since(
-		time.Unix(int64(i.Mtim.Sec), int64(i.Mtim.Nsec)),
-	).Hours()/24) + 1)
+	return uint16(math.Floor(time.Since(time.Unix(int64(i.Mtim.Sec), int64(i.Mtim.Nsec))).Hours()/24) + 1)
 }
 func check(s, f string, d uint16) error {
-	l, err := ioutil.ReadDir(s)
+	l, err := os.ReadDir(s)
 	if err != nil {
 		return errors.New(`could not read directory listing for "` + s + `": ` + err.Error())
 	}
@@ -107,7 +105,11 @@ func check(s, f string, d uint16) error {
 			continue
 		}
 		p++
-		if o := days(b); o > d {
+		i, err := b.Info()
+		if err != nil {
+			return errors.New(`could not read file "` + b.Name() + `": ` + err.Error())
+		}
+		if o := days(i); o > d {
 			if len(f) > 0 {
 				os.Stdout.WriteString("Filter [" + f + "] ")
 			}

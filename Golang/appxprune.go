@@ -4,7 +4,7 @@
 // appxprune.go
 // Removes Windows 10 Appx Packages
 //
-// Copyright (C) 2021 iDigitalFlame
+// Copyright (C) 2021 - 2022 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,7 +26,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -41,7 +40,7 @@ func main() {
 		s = os.Args[1]
 	}
 
-	d, err := ioutil.ReadFile(s)
+	d, err := os.ReadFile(s)
 	if err != nil {
 		os.Stderr.WriteString(`Could not open package list "` + s + `": ` + err.Error() + `!` + "\n")
 		os.Exit(1)
