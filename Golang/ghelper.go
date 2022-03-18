@@ -50,7 +50,7 @@ func main() {
 	case os.Geteuid() != 0:
 		os.Stderr.WriteString("Binary is lacking SUID permissions bit!\n")
 		os.Exit(1)
-	case len(os.Args) < 2:
+	case len(os.Args) <= 2:
 		os.Stderr.WriteString(os.Args[0] + " <group> <command...>\n")
 		os.Exit(2)
 	}
