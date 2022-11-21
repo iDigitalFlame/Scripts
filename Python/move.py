@@ -39,7 +39,7 @@ if __name__ == "__main__":
         _, e = splitext(basename(f))
         r = f"{prefix}{inc}{e.lower()}"
         try:
-            print(f'Moving "{f}" to "{r}"...')
+            print(f'Moving "{f}" to "{r}"..')
             if exists(r):
                 raise IOError(f'Not overriting existing file "{r}"!')
             rename(f, r)
