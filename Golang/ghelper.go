@@ -25,6 +25,7 @@ package main
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"syscall"
 )
@@ -43,12 +44,17 @@ var groups = map[string]int{
 }
 
 func main() {
+	if !filepath.IsAbs(os.Args[0]) {
+		os.Stderr.WriteString("You must use the fullpath of this binary!\n")
+		os.Exit(1)
+	}
+
 	switch {
 	case os.Getuid() == 0:
 		os.Stderr.WriteString("Refusing to run as root!\n")
 		os.Exit(1)
 	case os.Geteuid() != 0:
-		os.Stderr.WriteString("Binary is lacking SUID permissions bit!\n")
+		os.Stderr.WriteString("Binary is lacking the SUID permissions bit!\n")
 		os.Exit(1)
 	case len(os.Args) <= 2:
 		os.Stderr.WriteString(os.Args[0] + " <group> <command...>\n")
@@ -62,16 +68,18 @@ func main() {
 	}
 
 	if err := syscall.Setgid(g); err != nil {
-		os.Stderr.WriteString(`Could not set Group "` + strconv.Itoa(g) + `"!` + "\n")
+		os.Stderr.WriteString(`Could not set Group "` + strconv.Itoa(g) + `": ` + err.Error() + "!\n")
 		os.Exit(1)
 	}
 
 	r := os.Getuid()
 	if err := syscall.Setuid(r); err != nil {
-		panic(err)
+		os.Stderr.WriteString(`Could not set User "` + strconv.Itoa(r) + `": ` + err.Error() + "!\n")
+		os.Exit(1)
 	}
 	if err := syscall.Seteuid(r); err != nil {
-		panic(err)
+		os.Stderr.WriteString(`Could not set Effective User "` + strconv.Itoa(r) + `": ` + err.Error() + "!\n")
+		os.Exit(1)
 	}
 
 	e := exec.Command(os.Args[2])
