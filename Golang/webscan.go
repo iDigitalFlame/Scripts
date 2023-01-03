@@ -45,7 +45,7 @@ Usage:
   -d [dir]     Directory to save scans to.
   -e [binary]  Binary to use for scanning.
 
-Copyright (C) 2020 iDigitalFlame
+Copyright (C) 2020 - 2023 iDigitalFlame
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
