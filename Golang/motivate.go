@@ -1,7 +1,7 @@
 // motivate.go
 // Outputs great quotes and messages.
 //
-// Copyright (C) 2021 - 2022 iDigitalFlame
+// Copyright (C) 2021 - 2023 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ Usage:
   -a <quote> Add a quote to the quotes file.
   -n         Download a quote from the Internet.
 
-Copyright (C) 2020 - 2022 iDigitalFlame
+Copyright (C) 2020 - 2023 iDigitalFlame
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

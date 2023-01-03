@@ -1,7 +1,5 @@
-#!/usr/bin/bash
-# Relinks files to their respective directories.
-#
-# Copyright (C) 2020 - 2022 iDigitalFlame
+#!/bin/bash
+# Copyright (C) 2020 - 2023 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +18,7 @@
 DEBUG=0
 
 if [ $# -ne 2 ]; then
-    printf "relink <config source> <config target> [debug]\n"
+    echo "relink <config source> <config target> [debug]"
     exit 1
 fi
 
@@ -32,12 +30,12 @@ list() {
     if [ $# -ne 2 ]; then
         return 1
     fi
-    fc=${1%/}
-    ft=${2%/}
-    for file in $(find "$fc" -type f -print); do
-        fp=$(printf "$file" | awk "{gsub(\"${fc}\", \"\"); print \$1}")
-        if ! [ -z $(echo $fp | grep -vE '\.(nlk|nolink)$|^\/\.git(\/|ignore$|config$)|^\/(LICENSE|license)$|^\/[a-zA-Z0-9_.]+\.(md|vscode|MD|code-workspace)$') ]; then
-            check "$ft$fp" "$fc$fp"
+    files_src=${2%/}
+    files_target=${1%/}
+    find "$files_target" -type f -print | while IFS= read -r file; do
+        file_name=$(printf "%s" "$file" | awk "{gsub(\"${files_target}\", \"\"); print \$1}")
+        if ! echo "$file_name" | grep -qE '.(nlk|nolink)$|^/.git(|ignore$|config$)|^/(LICENSE|license|.vscode)$|^/[a-zA-Z0-9_.-]+.(md|vscode|MD|code-workspace)$'; then
+            check "${files_src}${file_name}" "${files_target}${file_name}"
         fi
     done
     return 0
@@ -48,24 +46,22 @@ link() {
         return 1
     fi
     rm -f "$1" 2> /dev/null
-    fd=$(dirname "$1")
-    if ! [ -d "$fd" ]; then
-        printf "Making $fd\n"
-        mkdir -p "$fd" 2> /dev/null
-        if [ $? -ne 0 ]; then
-            panic "Cannot create directory \"$fd\"!"
+    file_dir=$(dirname "$1")
+    if ! [ -d "$file_dir" ]; then
+        printf "Making \"%s\"..\n" "$file_dir"
+        if ! mkdir -p "$file_dir" 2> /dev/null; then
+            panic "Cannot create directory \"${file_dir}\"!"
         fi
-        if [ $UID -eq 0 ]; then
-            chmod 555 "$fd"
+        if [ "$UID" = "0" ]; then
+            chmod 0555 "$file_dir"
         else
-            chmod 755 "$fd"
+            chmod 0755 "$file_dir"
         fi
     fi
-    ln -s "$2" "$1"
-    if [ $? -ne 0 ]; then
-        panic "Could not link \"$1\" to \"$2\"!"
+    if ! ln -s "$2" "$1"; then
+        panic "Could not link \"${1}\" to \"${2}\"!"
     fi
-    printf "[+] Relinked \"$1\" to \"$2\".\n"
+    printf "[+] Relinked \"%s\" to \"%s\".\n" "$1" "$2"
     return 0
 }
 
@@ -74,19 +70,18 @@ check() {
         return 1
     fi
     if [ $DEBUG -eq 1 ]; then
-        printf "[+] Checking \"$1\".. \n"
+        printf "[+] Checking \"%s\"..\n" "$1"
     fi
     if ! [ -L "$1" ]; then
-        printf "File \"$1\" is invalid, updating!\n"
+        printf "File \"%s\" is invalid, updating!\n" "$1"
         link "$1" "$2"
     else
-        fl=$(ls -al "$1" | awk '{print $11}')
-        if ! [[ "$fl" == "$2" ]]; then
-            printf "File \"$1\" is invalid, updating!\n"
+        if ! [ "$(readlink "$1")" = "$2" ]; then
+            printf "File \"%s\" is invalid, updating!\n" "$1"
             link "$1" "$2"
         else
             if [ $DEBUG -eq 1 ]; then
-                printf "File \"$1\" is valid!\n"
+                printf "File \"%s\" is valid!\n" "$1"
             fi
         fi
     fi
@@ -94,18 +89,16 @@ check() {
 }
 
 panic() {
-    printf "[!] $1\n"
+    echo "[!] $1"
     exit 1
 }
 
 if ! [ -d "$1" ]; then
-    panic "Config source \"$1\" does not exist!"
+    panic "Config source directory \"${1}\" does not exist!"
 fi
-
 if ! [ -d "$2" ]; then
-    mkdir -p "$2"
-    if [ $? -ne 0 ]; then
-        panic "Could not create target directory \"$2\"!"
+    if ! mkdir -p "$2" 2> /dev/null; then
+        panic "Could not create target directory \"${2}\"!"
     fi
 fi
 

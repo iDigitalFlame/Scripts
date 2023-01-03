@@ -4,7 +4,7 @@
 // prune.go
 // Files prune script, deletes files older than the specified amount of days.
 //
-// Copyright (C) 2021 - 2022 iDigitalFlame
+// Copyright (C) 2021 - 2023 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@ Usage:
   -f [filter] Filter scan to files that contain this string.
   -t [days]   Day limit for when file is deleted, defaults to 10.
 
-Copyright (C) 2021 - 2022 iDigitalFlame
+Copyright (C) 2021 - 2023 iDigitalFlame
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
