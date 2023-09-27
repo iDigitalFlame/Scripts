@@ -1,7 +1,7 @@
 // webscan.go
 // A web based scanning program that uses the "imgscan" linux binary to scan remotely.
 //
-// Copyright (C) 2021 iDigitalFlame
+// Copyright (C) 2021 - 2023 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

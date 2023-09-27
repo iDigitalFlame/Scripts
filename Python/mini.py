@@ -24,65 +24,80 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from io import StringIO
 from sys import exit, argv, stderr
 
-if len(argv) < 3:
-    print("%s <len> <file> [pipe>]" % argv[0])
-    exit(1)
 
-try:
-    delim = int(argv[1])
-except ValueError as err:
-    print(str(err), file=stderr)
-    exit(1)
-
-try:
-    source_handle = open(str(argv[2]), "r")
-    source = source_handle.read()
-    source_handle.close()
-    del source_handle
-except OSError as err:
-    print(str(err), file=stderr)
-    exit(1)
-
-if len(argv) >= 4:
-    output = ' >> "%s"' % str(argv[3])
-else:
-    output = ""
-
-last = None
-current = 0
-block = list()
-result = list()
-
-for c in source:
-    if current >= delim:
-        result.append("".join(block))
-        block.clear()
-        current = 0
-    if c == "\n":
-        block.append("\\n")
-    elif c == "\t":
-        block.append("\\t")
-    elif c == "\\":
-        block.append("\\\\")
-    elif c == "'":
-        block.append("'\\''")
-    elif c == "%":
-        block.append("%%")
+def _file(path, max_len=80, output=None):
+    r, k = None, False
+    if isinstance(output, str) and len(output) > 0:
+        t1, t2 = f' > "{output}"', f' >> "{output}"'
     else:
-        block.append(c)
-    current += 1
-    last = c
+        t1, t2 = "", ""
+    try:
+        with open(path, "r") as f:
+            r = f.read()
+    except UnicodeDecodeError:
+        y = StringIO()
+        with open(path, "rb") as f:
+            for c in f.read():
+                y.write(f"\\x{hex(c).upper()[2:].zfill(2)}")
+        r, k = y.getvalue(), True
+        y.close()
+        del y
+    if not isinstance(r, str) or len(r) == 0:
+        return print(f'printf ""{t1}')
+    i = 0
+    o = StringIO()
+    if len(t1) > 0:
+        e = [f'printf ""{t1}']
+    else:
+        e = list()
+    for c in r:
+        if i >= max_len:
+            e.append(f"printf '{o.getvalue()}'{t2}")
+            o.truncate(0)
+            o.seek(0)
+            o.flush()
+            i = 0
+        if c == "\n":
+            o.write("\\n")
+            i += 1
+        elif c == "\t":
+            o.write("\\t")
+            i += 1
+        elif c == "\\" and not k:
+            o.write("\\\\")
+            i += 1
+        elif c == "'":
+            o.write("'\\''")
+            i += 3
+        elif c == "%":
+            o.write("%%")
+            i += 1
+        else:
+            o.write(c)
+        i += 1
+    if o.tell() > 0:
+        e.append(f"printf '{o.getvalue()}'{t2}")
+    del t1, t2
+    print("\n".join(e))
+    del o, k, r, e, i
 
-if len(block) > 0:
-    result.append("".join(block))
 
-del last
-del block
-del current
+if __name__ == "__main__":
+    if len(argv) < 3:
+        print(f"{argv[0]} <len> <file> [target]")
+        exit(2)
 
-for b in result:
-    print(f"printf '{b}'{output}")
+    try:
+        m = int(argv[1])
+    except ValueError:
+        print(f'Invalid length value "{argv[1]}"!', file=stderr)
+        exit(1)
 
-exit(0)
+    try:
+        _file(argv[2], m, argv[3] if len(argv) == 4 else None)
+    except OSError as err:
+        print(f"Error processing file: {err}", file=stderr)
+        exit(1)

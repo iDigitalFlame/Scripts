@@ -30,7 +30,7 @@ import (
 	"syscall"
 )
 
-// default groups in the 'Spaceport' project.
+// Default groups in the 'Spaceport' project.
 var groups = map[string]int{
 	"db":    9905,
 	"web":   9901,

@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+#
 # Copyright (C) 2021 - 2023 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
@@ -6600,8 +6601,9 @@ if len(argv) <= 1:
     exit(1)
 
 c = argv[1].lower()
-
 print(f'The result "{c}" matches:')
+
 for k, v in mappings.items():
     if c in k.lower():
-        print(f"{k}: {v[0]}\n    {v[1]}\n")
+        print(f"{k}: {v[0]}\n\t{v[1]}\n")
+del c

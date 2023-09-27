@@ -1,5 +1,7 @@
-#!/bin/bash
-# Copyright (C) 2020 - 2023 iDigitalFlame
+#!/usr/bin/dash
+# Relinks files to their respective directories.
+#
+# Copyright (C) 2016 - 2023 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -52,7 +54,7 @@ link() {
         if ! mkdir -p "$file_dir" 2> /dev/null; then
             panic "Cannot create directory \"${file_dir}\"!"
         fi
-        if [ "$UID" = "0" ]; then
+        if [ "$USER" = "root" ]; then
             chmod 0555 "$file_dir"
         else
             chmod 0755 "$file_dir"
