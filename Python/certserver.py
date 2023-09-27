@@ -186,14 +186,14 @@ class CertServer(object):
         h.close()
         del b, h
         m = MIMEMultipart("alternative")
-        m["Subject"] = "[LoSynth] Certificate Expiry Notification"
+        m["Subject"] = "Certificate Expiry Notification"
         m["From"] = self.mail["from"]
         m["To"] = self.mail["to"]
         m.attach(
             MIMEText(
                 f"Hello,\n\nThe following certificates will expire soon:\n"
                 f"{v}\n\nTo ensure that no service interruptions occur, "
-                "please renew them.\n\n- LoSynth Services\n",
+                "please renew them.\n\n- Certificate Services\n",
                 "plain",
             )
         )
@@ -204,7 +204,7 @@ class CertServer(object):
                 "<table><tr><th>Name</th><th>Serial</th><th>Expire Date</th></tr>"
                 f"<tbody>{r}</tbody></table><br/<br/><div>To ensure that no service"
                 "interruptions occur, please <b>renew</b> them.</div><br/><div>"
-                "- LoSynth Services</div>",
+                "- Certificate Services</div>",
                 "html",
             )
         )
