@@ -1,4 +1,4 @@
-#!/usr/bin/dash
+#!/bin/bash
 # Relinks files to their respective directories.
 #
 # Copyright (C) 2016 - 2023 iDigitalFlame
