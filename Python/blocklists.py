@@ -17,11 +17,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from io import BytesIO
 from requests import get
 from re import compile, I
 from sys import stderr, exit
 from traceback import format_exc
 from argparse import ArgumentParser
+from tarfile import open as tar_open
 from os.path import exists, isfile, expanduser, expandvars
 
 _Locals = [
@@ -252,6 +254,36 @@ def _check(rules, e):
     return True
 
 
+def _download_parse(url, data):
+    if not url.endswith(".tar.gz"):
+        return data.decode("UTF-8")
+    b = BytesIO(data)
+    f, d = tar_open(fileobj=b), None
+    try:
+        n = url[url.rfind("/") + 1 :]
+    except (IndexError, TypeError):
+        n = None
+    for i in f.getmembers():
+        if i.name.endswith("/domains") or (
+            isinstance(n, str) and len(n) > 0 and i.name.endswith(n)
+        ):
+            d = f.extractfile(i).read().decode("UTF-8")
+            break
+    if not isinstance(d, str) or len(d) == 0:
+        m = f.getmembers()
+        if len(m) > 0:
+            d = f.extractfile(m[0]).read().decode("UTF-8")
+            if "\n" not in d:
+                d = None
+        del m
+    f.close()
+    b.close()
+    del b, f
+    if not isinstance(d, str) or len(d) == 0:
+        raise OSError(f'URL "{url}" tar entry is not valid or is empty')
+    return d
+
+
 def _add_entry(res, ip4, ip6, v):
     if len(v) == 0:
         return
@@ -306,7 +338,7 @@ def _download(res, ip4, ip6, url):
     with get(url, stream=True, headers={"User-Agent": USER_AGENT}) as r:
         if r.status_code != 200:
             raise OSError(f'URL "{url}" returned non-OK status code {r.status_code}')
-        d = r.content.decode("UTF-8")
+        d = _download_parse(url, r.content)
         r.close()
     for i in d.split("\n"):
         if len(i) == 0 or i[0] == "#" or i[0] == ";":
