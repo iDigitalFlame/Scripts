@@ -58,7 +58,7 @@ _ALLOWED_DNS = [
     "2606:4700:4700::1111",
 ]
 
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
 def _main():
@@ -94,6 +94,16 @@ def _main():
         required=True,
     )
     p.add_argument(
+        "-f",
+        "--extra",
+        type=str,
+        dest="extra",
+        help="Extra newline-seperated domains to add.",
+        action="store",
+        metavar="extra",
+        required=False,
+    )
+    p.add_argument(
         "--ipv4",
         type=str,
         dest="ipv4",
@@ -118,13 +128,19 @@ def _main():
         action="store_true",
         required=False,
     )
-    a = p.parse_args()
-    r = None
-    if a.rules is not None:
+    a, r, q = p.parse_args(), None, None
+    if isinstance(a.extra, str) and len(a.extra) > 0:
+        try:
+            q = _extra(expanduser(expandvars(a.extra)))
+        except Exception as err:
+            print(f"Error reading and parsing extra domains: {err}!", file=stderr)
+            print(format_exc(limit=3), file=stderr)
+            return exit(1)
+    if isinstance(a.rules, str) and len(a.rules) > 0:
         try:
             r = _rules(expanduser(expandvars(a.rules)))
-        except Exception:
-            print("Error compiling rules!", file=stderr)
+        except Exception as err:
+            print(f"Error compiling rules: {err}!", file=stderr)
             print(format_exc(limit=3), file=stderr)
             return exit(1)
     if r is not None:
@@ -143,23 +159,34 @@ def _main():
                     )
                     continue
                 raise err
-    except Exception:
-        print("Error downloading and parsing URLs!", file=stderr)
+    except Exception as err:
+        print(f"Error downloading and parsing URLs: {err}!", file=stderr)
         print(format_exc(limit=3), file=stderr)
         return exit(1)
     print(
-        f"Parsed {len(e)} Domain Names, {len(i4)} IPv4 Addresses and {len(i6)} IPv6 Addresses."
+        f"Downloaded {len(e)} Domain Names, {len(i4)} IPv4 Addresses and {len(i6)} IPv6 Addresses."
     )
+    if q is not None and len(q) > 0:
+        for i in q:
+            e.add(i.lower())
+        print(f"Added {len(q)} additional domains.")
+    del q
     if r is not None:
         print(f"Checking {len(e)} Domains against ruleset..")
-    o = list()
-    for v in e:
-        if not _check(r, v):
-            continue
-        o.append(v)
-    if r is not None:
+        o, p, m, u = list(), 0, len(e), 0
+        for x, i in enumerate(e):
+            p = int(round((x / m) * 100, 0))
+            if p > u and p % 10 == 0 and p < 100:
+                print(f"Checking {p}% ({x}/{m}) complete..")
+                u = p
+            if not _check(r, i):
+                continue
+            o.append(i)
+        del p, m, u
         print(f"Removed {len(e)-len(o)} Domain Names from the ruleset.")
-    del e
+    else:
+        o = e
+    del e, r
     print(f'Writing {len(o)} Domain Names to file "{a.out}"..')
     try:
         with open(expanduser(expandvars(a.out)), "w") as f:
@@ -188,7 +215,7 @@ def _main():
             print(f'Error saving output to "{a.ipv6}"!', file=stderr)
             print(format_exc(limit=3), file=stderr)
             return exit(1)
-    del i4, i6
+    del i4, i6, a
     print("Done!")
 
 
@@ -221,7 +248,7 @@ def _read(file):
 
 def _rules(file):
     if not isfile(file):
-        return None
+        raise OSError(f'Rules file path "{file}" does not exist')
     with open(file) as f:
         d = f.read()
     if d is None or len(d) == 0:
@@ -238,6 +265,29 @@ def _rules(file):
             r.append(compile(e, I))
         except Exception as err:
             raise OSError(f'Regex rule "{e}" failed to compile: {err}') from err
+        del e
+    del d
+    if len(r) == 0:
+        return None
+    return r
+
+
+def _extra(file):
+    if not exists(file):
+        raise OSError(f'Extra file path "{file}" does not exist')
+    with open(file) as f:
+        d = f.read()
+    if d is None or len(d) == 0:
+        return None
+    r = list()
+    for i in d.split("\n"):
+        if len(i) == 0 or i[0] == "#":
+            continue
+        e = i.strip()
+        if len(e) == 0 or e[0] == "#":
+            continue
+        del i
+        r.append(e)
         del e
     del d
     if len(r) == 0:
