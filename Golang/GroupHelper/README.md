@@ -1,7 +1,9 @@
 # Group Helper
 
 __Linux Only__
+
 __May need to be configured before compiling__
+
 *Deprecated in favor of [Ghr](https://github.com/iDigitalFlame/Scripts/tree/main/Rust/ghr)*
 
 The Group Helper binary is one component that is commonly used in [spaceport](https://github.com/iDigitalFlame/Spaceport)
