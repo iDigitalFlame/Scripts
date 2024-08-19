@@ -31,6 +31,8 @@ def _move(src, prefix=""):
         r = compile("^(?P<num>[0-9]+)\\..*$")
     u, m = list(), list()
     for f in g:
+        if f.endswith("desktop.ini"):
+            continue
         v = r.match(basename(f))
         if v is None:
             m.append(f)

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # Blocklist Downloader and Parser
 #
-# Copyright (C) 2023 iDigitalFlame
+# Copyright (C) 2024 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@ from sys import stderr, exit
 from traceback import format_exc
 from argparse import ArgumentParser
 from tarfile import open as tar_open
+from urllib.request import getproxies
 from os.path import exists, isfile, expanduser, expandvars
 
 _Locals = [
@@ -58,7 +59,8 @@ _ALLOWED_DNS = [
     "2606:4700:4700::1111",
 ]
 
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+PROXIES = getproxies()
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
 
 def _main():
@@ -183,7 +185,7 @@ def _main():
                 continue
             o.append(i)
         del p, m, u
-        print(f"Removed {len(e)-len(o)} Domain Names from the ruleset.")
+        print(f"Removed {len(e) - len(o)} Domain Names from the ruleset.")
     else:
         o = e
     del e, r
@@ -385,7 +387,9 @@ def _add_entry(res, ip4, ip6, v):
 
 
 def _download(res, ip4, ip6, url):
-    with get(url, stream=True, headers={"User-Agent": USER_AGENT}) as r:
+    with get(
+        url, stream=True, headers={"User-Agent": USER_AGENT}, proxies=PROXIES
+    ) as r:
         if r.status_code != 200:
             raise OSError(f'URL "{url}" returned non-OK status code {r.status_code}')
         d = _download_parse(url, r.content)
