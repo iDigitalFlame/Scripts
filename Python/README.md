@@ -20,6 +20,9 @@ Simple and small Python scripts that I find useful.
 - *mini.py*: Minifies files into printf statements for easy transport and scripting.
 - *move.py*: Re-sorts files in a directory based on a name prefix and number scheme.
 - *ntstatus.py*: Looks up a NTSTATUS code and will attempt to find the English translation.
+- *rename.py*: Renames index-sorted files named with a matching prefix to their matching
+  entry+increnment. Used to rename a numerical group of files with an increment.
+  (IE: rename files (pic-10 to pic-20) + 5 to (pic-15 to pic-20)).
 - *samedir.py*: Attempts to find files that match the same hash in a directory and
   offers the ability to delete them
 - *sitemap.py*: Used to spider a site and generate an XML-formatted sitemap.xml file.
