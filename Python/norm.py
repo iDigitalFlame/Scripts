@@ -23,38 +23,43 @@ from sys import argv, exit, stderr
 from os.path import isdir, basename, join, isfile, splitext, abspath, exists, dirname
 
 
-def _move(src, prefix=""):
+def _scan(src, prefix=""):
     g = glob(join(abspath(src), "**"), recursive=False)
     if len(prefix) > 0:
         r = compile(f"^{prefix}(?P<num>[0-9]+)\\..*$")
     else:
         r = compile("^(?P<num>[0-9]+)\\..*$")
-    u, m = list(), list()
+    e = list()
     for f in g:
         if f.endswith("desktop.ini"):
             continue
         v = r.match(basename(f))
         if v is None:
-            m.append(f)
             continue
-        u.append(int(v.group("num")))
-    del r
-    u.sort()
-    i = 0
-    for f in m:
-        while i in u:
-            i += 1
+        e.append((int(v.group("num")), f))
+        del v
+    del g
+    e.sort(key=lambda x: x[0])
+    for x in range(0, len(e)):
+        if x + 1 != e[x][0]:
+            return (x + 1, e[x:])
+    return (None, None)
+
+
+def _move(idx, ent, prefix=""):
+    m = ent[0][0] - idx
+    for i, f in ent:
         if not isfile(f):
             continue
         _, e = splitext(basename(f))
-        n = join(dirname(f), f"{prefix}{i}{e.lower()}")
+        n = join(dirname(f), f"{prefix}{i - m}{e.lower()}")
+        del e
         if exists(n):
             raise IOError(f'not overriting existing file "{n}"')
         print(f'Moving "{f}" to "{n}"..')
         rename(f, n)
-        i += 1
-        del e, n
-    del u, m
+        del n
+    del m
 
 
 if __name__ == "__main__":
@@ -72,7 +77,12 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        _move(target, prefix)
+        while True:
+            i, e = _scan(target, prefix)
+            if i is None or e is None:
+                break
+            print(f"Broken Chain at Index {i} Found!")
+            _move(i, e, prefix)
     except OSError as err:
         print(f"Error during move: {err}!", file=stderr)
         exit(1)
