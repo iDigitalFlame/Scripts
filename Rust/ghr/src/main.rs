@@ -20,15 +20,24 @@
 //
 //  Also fixes xdg-open calls (since it just appends to the end).
 
-extern crate libc;
+#![no_implicit_prelude]
 
-use core::iter::once;
-use core::ptr;
+extern crate core;
+extern crate libc;
+extern crate std;
+
+use core::convert::From;
+use core::iter::{once, Extend, Iterator};
+use core::option::Option::{None, Some};
+use core::ptr::{null, null_mut};
+use core::result::Result::{Err, Ok};
 use std::env::args;
 use std::ffi::CString;
 use std::io::{self, Error, ErrorKind};
-use std::path;
 use std::process::exit;
+use std::string::String;
+use std::vec::Vec;
+use std::{eprintln, path};
 
 use libc::{execv, geteuid, getgrnam_r, getuid, group, setgid, setuid};
 
@@ -96,7 +105,7 @@ fn main() {
         }));
     }
 
-    let x: Vec<*const i8> = b.iter().map(|i| i.as_ptr()).chain(once(ptr::null())).collect();
+    let x: Vec<*const i8> = b.iter().map(|i| i.as_ptr()).chain(once(null())).collect();
     if unsafe { execv(b[0].as_ptr(), x.as_ptr()) } != 0 {
         eprintln!("error: execv failed!");
         exit(1)
@@ -106,11 +115,11 @@ fn group_gid(name: &str) -> io::Result<u32> {
     let mut b: Vec<u8> = Vec::with_capacity(256);
     let mut g = group {
         gr_gid:    0,
-        gr_mem:    ptr::null_mut(),
-        gr_name:   ptr::null_mut(),
-        gr_passwd: ptr::null_mut(),
+        gr_mem:    null_mut(),
+        gr_name:   null_mut(),
+        gr_passwd: null_mut(),
     };
-    let (mut o, mut n) = (ptr::null_mut(), 256);
+    let (mut o, mut n) = (null_mut(), 256);
     loop {
         let r = unsafe {
             getgrnam_r(
@@ -130,7 +139,7 @@ fn group_gid(name: &str) -> io::Result<u32> {
             0 => {
                 return match unsafe { o.as_ref() } {
                     Some(z) => Ok(z.gr_gid),
-                    None => Err(ErrorKind::NotFound.into()),
+                    None => Err(Error::from(ErrorKind::NotFound)),
                 }
             },
             _ => return Err(Error::last_os_error()),
