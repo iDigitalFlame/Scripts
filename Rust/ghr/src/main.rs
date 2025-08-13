@@ -26,32 +26,66 @@ extern crate core;
 extern crate libc;
 extern crate std;
 
-use core::convert::From;
-use core::iter::{once, Extend, Iterator};
-use core::option::Option::{None, Some};
+use core::iter::{ExactSizeIterator, Iterator};
 use core::ptr::{null, null_mut};
-use core::result::Result::{Err, Ok};
-use std::env::args;
+use core::result::Result::{self, Err, Ok};
+use std::env::{Args, args};
+use std::eprintln;
 use std::ffi::CString;
-use std::io::{self, Error, ErrorKind};
+use std::path::Path;
 use std::process::exit;
 use std::string::String;
 use std::vec::Vec;
-use std::{eprintln, path};
 
 use libc::{execv, geteuid, getgrnam_r, getuid, group, setgid, setuid};
 
-fn main() {
-    let a = args().collect::<Vec<String>>();
-    if !a[0].starts_with(|v| v == '/') {
-        eprintln!("error: fullpath must be used!");
-        exit(1)
-    }
-    if a.len() <= 2 {
-        eprintln!("ghr <group> <command> [args..]");
-        exit(2)
-    }
+enum Error {
+    NoArgs,
+    NoFullpath,
+    FileInvalid,
+    FileNotExist(String),
+    GroupInvalid,
+    GroupOSError(i32),
+    GroupNotFound(CString),
+}
 
+impl Error {
+    #[inline]
+    fn exit(&self) -> ! {
+        match self {
+            Error::NoArgs => {
+                eprintln!("ghr <group> <command> [args..]");
+                exit(2)
+            },
+            Error::NoFullpath => {
+                eprintln!("error: fullpath must be used!");
+                exit(1)
+            },
+            Error::FileInvalid => {
+                eprintln!("error: filepath is invalid!");
+                exit(1)
+            },
+            Error::GroupInvalid => {
+                eprintln!("error: group name is invalid!");
+                exit(1)
+            },
+            Error::GroupOSError(e) => {
+                eprintln!("error: group cannot be found (error {e})!");
+                exit(*e)
+            },
+            Error::FileNotExist(v) => {
+                eprintln!("error: file \"{v}\" does not exist!");
+                exit(1)
+            },
+            Error::GroupNotFound(v) => {
+                eprintln!("error: group {v:?} was not found!");
+                exit(1)
+            },
+        }
+    }
+}
+
+fn main() {
     let u = unsafe { getuid() };
     match (u == 0, unsafe { geteuid() != 0 }) {
         (true, ..) => {
@@ -65,17 +99,14 @@ fn main() {
         (..) => (),
     }
 
-    if !path::Path::new(&a[2]).is_file() {
-        eprintln!("error: file \"{}\" does not exist!", a[2]);
-        exit(1)
-    }
-
-    let g = match group_gid(&a[1]) {
-        Ok(i) => i,
-        Err(_) => {
-            eprintln!("error: group \"{}\" does not exist!", a[1]);
-            exit(1)
-        },
+    let mut a = args();
+    let g = match find_gid(&mut a) {
+        Err(e) => e.exit(),
+        Ok(v) => v,
+    };
+    let p = match find_file(&mut a) {
+        Err(e) => e.exit(),
+        Ok(v) => v,
     };
 
     if unsafe { setgid(g) } != 0 {
@@ -87,62 +118,76 @@ fn main() {
         exit(1);
     }
 
-    let mut b = Vec::new();
-    b.push(match CString::new(a[2].as_bytes()) {
-        Ok(r) => r,
-        Err(_) => {
-            eprintln!("error: cannot convert string \"{}\"!", a[2]);
-            exit(1)
-        },
-    });
-    if a.len() > 2 {
-        b.extend(a[3..].iter().map(|i| match CString::new(i.as_bytes()) {
-            Ok(r) => r,
+    let (mut b, mut x) = (Vec::new(), Vec::new());
+    x.push(p.as_ptr());
+
+    for i in a {
+        let v = match CString::new(i) {
+            Ok(v) => v,
             Err(_) => {
-                eprintln!("error: cannot convert string \"{}\"!", i);
+                eprintln!("error: filepath is invalid!");
                 exit(1)
             },
-        }));
+        };
+        x.push(v.as_ptr());
+        b.push(v);
     }
+    x.push(null());
 
-    let x: Vec<*const i8> = b.iter().map(|i| i.as_ptr()).chain(once(null())).collect();
-    if unsafe { execv(b[0].as_ptr(), x.as_ptr()) } != 0 {
+    if unsafe { execv(p.as_ptr(), x.as_ptr()) } != 0 {
         eprintln!("error: execv failed!");
         exit(1)
     }
 }
-fn group_gid(name: &str) -> io::Result<u32> {
-    let mut b: Vec<u8> = Vec::with_capacity(256);
+fn find_gid(a: &mut Args) -> Result<u32, Error> {
+    if a.len() <= 2 {
+        return Err(Error::NoArgs);
+    }
+    // Check if first arg (arg[0]) starts with '/'
+    //
+    // SAFETY: Cannot be None as the 'len' check passed.
+    if unsafe { a.next().unwrap_unchecked() }
+        .as_bytes()
+        .first()
+        .is_none_or(|v| *v != b'/')
+    {
+        return Err(Error::NoFullpath);
+    }
+    // SAFETY: Cannot be None as the 'len' check passed.
+    let n = CString::new(unsafe { a.next().unwrap_unchecked() }).map_err(|_| Error::GroupInvalid)?;
     let mut g = group {
-        gr_gid:    0,
+        gr_gid:    0u32,
         gr_mem:    null_mut(),
         gr_name:   null_mut(),
         gr_passwd: null_mut(),
     };
-    let (mut o, mut n) = (null_mut(), 256);
+    let (mut b, mut i) = (Vec::with_capacity(256usize), 256usize);
     loop {
+        b.resize(i, 0u8);
+        let mut o = null_mut();
         let r = unsafe {
             getgrnam_r(
-                name.as_ptr() as *const i8,
+                n.as_ptr() as *const i8,
                 &mut g,
                 b.as_mut_ptr() as *mut i8,
-                n,
+                i,
                 &mut o,
             )
         };
         match r {
-            0x22 => {
-                n *= 2;
-                b.resize(n, 0);
-                continue;
-            },
-            0 => {
-                return match unsafe { o.as_ref() } {
-                    Some(z) => Ok(z.gr_gid),
-                    None => Err(Error::from(ErrorKind::NotFound)),
-                }
-            },
-            _ => return Err(Error::last_os_error()),
+            0x22 => i *= 2,
+            0x0 if o.is_null() => break Err(Error::GroupNotFound(n)),
+            0 => break Ok(g.gr_gid),
+            e => break Err(Error::GroupOSError(e)),
         }
     }
+}
+#[inline]
+fn find_file(a: &mut Args) -> Result<CString, Error> {
+    // SAFETY: Cannot be None as the 'len' check passed.
+    let v = unsafe { a.next().unwrap_unchecked() };
+    if !Path::new(&v).is_file() {
+        return Err(Error::FileNotExist(v));
+    }
+    CString::new(v).map_err(|_| Error::FileInvalid)
 }
