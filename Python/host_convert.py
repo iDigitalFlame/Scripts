@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (C) 2023 iDigitalFlame
+# Copyright (C) 2023 - 2025 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ def parse(file, dir):
         return False
     if d is None or len(d) == 0:
         return True
-    c = dict()
+    c, e = dict(), True
     for u in d.split("\n"):
         if len(u) == 0 or u[0] == "#":
             continue
@@ -65,12 +65,14 @@ def parse(file, dir):
             download(v, f"{dir}/{n}.txt")
         except (OSError, UnicodeDecodeError) as err:
             print(f'Could not download/parse "{v}" to "{n}": {err}!', file=stderr)
-            return False
-    return True
+        else:
+            continue
+        e = False
+    return e
 
 
 def download(url, name):
-    with get(url, stream=True, timeout=5, headers={"User-Agent": "curl/7.73.0"}) as r:
+    with get(url, stream=True, timeout=30, headers={"User-Agent": "curl/7.73.0"}) as r:
         if r.status_code != 200:
             raise OSError(f"non-OK status code {r.status_code}")
         d = r.content.decode("UTF-8")
@@ -93,7 +95,7 @@ def download(url, name):
             if v == "0.0.0.0" or v == "127.0.0.1":
                 o.write(f"{e}\n")
                 continue
-            o.write(f"0.0.0.0 {e[i+1:].strip()}\n")
+            o.write(f"0.0.0.0 {e[i + 1:].strip()}\n")
         o.flush()
     del o
 

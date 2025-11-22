@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # Blocklist Downloader and Parser
 #
-# Copyright (C) 2024 iDigitalFlame
+# Copyright (C) 2024 - 2025 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,6 +32,8 @@ _Locals = [
     "0.0.0.0",
     "127.0.0.1",
     "255.255.255.255",
+    "239.255.255.250",
+    "224.0.0.251",
     "fe80::1%lo0",
     "ff00::0",
     "ff02::1",
@@ -40,8 +42,12 @@ _Locals = [
     "localhost",
     "localhost.localdomain",
 ]
+_Reserved_IPv4 = ["172.16.", "10.", "192.168.", "127.0.0.1", "169.254." "224.0"]
+_Reserved_IPv6 = ["fc00:", "fe80:", "ff00:"]
 
-_IPv4 = compile(r"^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$")
+_IPv4 = compile(
+    r"^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})(/[0-9]{0,2}){0,1}$"
+)
 _IPv6 = compile(
     r"^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]"
     r"{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|"
@@ -49,7 +55,7 @@ _IPv6 = compile(
     r"[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}"
     r"%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|"
     r"(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}"
-    r"(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$"
+    r"(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))(/[0-9]{0,2}){0,1}$"
 )
 
 _ALLOWED_DNS = [
@@ -147,16 +153,17 @@ def _main():
             return exit(1)
     if r is not None:
         print(f'Compiled {len(r)} rules from "{a.rules}"')
-    e, i4, i6 = set(), set(), set()
+    e, i4, i6, eo = set(), set(), set(), False
     try:
         for u in _read(expanduser(expandvars(a.urls))):
             print(f'Downloading "{u}"..')
             try:
                 _download(e, i4, i6, u)
             except Exception as err:
+                eo = True
                 if a.no_break:
                     print(
-                        f"Error downloading and parsing URL {u}, skipping entry!",
+                        f"Error downloading and parsing URL {u}: {err}, skipping entry!",
                         file=stderr,
                     )
                     continue
@@ -185,9 +192,10 @@ def _main():
                 continue
             o.append(i)
         del p, m, u
+        o.sort()
         print(f"Removed {len(e) - len(o)} Domain Names from the ruleset.")
     else:
-        o = e
+        o = sorted(e)
     del e, r
     print(f'Writing {len(o)} Domain Names to file "{a.out}"..')
     try:
@@ -218,6 +226,9 @@ def _main():
             print(format_exc(limit=3), file=stderr)
             return exit(1)
     del i4, i6, a
+    if eo:
+        print("Done, but error occuring during runtime!")
+        exit(1)
     print("Done!")
 
 
@@ -245,7 +256,7 @@ def _read(file):
         r.add(e)
         del e
     del d
-    return r
+    return sorted(r)
 
 
 def _rules(file):
@@ -294,6 +305,7 @@ def _extra(file):
     del d
     if len(r) == 0:
         return None
+    r.sort()
     return r
 
 
@@ -304,6 +316,18 @@ def _check(rules, e):
         if i.fullmatch(e) is not None:
             return False
     return True
+
+
+def _is_reserved(v, v6):
+    if v6:
+        for i in _Reserved_IPv6:
+            if v.startswith(i):
+                return True
+        return False
+    for i in _Reserved_IPv4:
+        if v.startswith(i):
+            return True
+    return False
 
 
 def _download_parse(url, data):
@@ -345,11 +369,11 @@ def _add_entry(res, ip4, ip6, v):
         if "|" in v[0]:
             return _add_entry(res, ip4, ip6, v[0].split("|"))
         if _IPv4.fullmatch(v[0]) is not None:
-            if v[0] in _ALLOWED_DNS:
+            if v[0] in _ALLOWED_DNS or _is_reserved(v[0], False):
                 return
             return ip4.add(v[0])
         if ":" in v[0] and _IPv6.fullmatch(v[0]) is not None:
-            if v[0] in _ALLOWED_DNS:
+            if v[0] in _ALLOWED_DNS or _is_reserved(v[0], True):
                 return
             return ip6.add(v[0])
         return res.add(v[0].lower())
@@ -359,11 +383,11 @@ def _add_entry(res, ip4, ip6, v):
         if "|" in v[1]:
             return _add_entry(res, ip4, ip6, v[1].split("|"))
         if _IPv4.fullmatch(v[1]) is not None:
-            if v[1] in _ALLOWED_DNS:
+            if v[1] in _ALLOWED_DNS or _is_reserved(v[1], False):
                 return
             return ip4.add(v[1])
         if ":" in v[1] and _IPv6.fullmatch(v[1]) is not None:
-            if v[1] in _ALLOWED_DNS:
+            if v[1] in _ALLOWED_DNS or _is_reserved(v[1], True):
                 return
             return ip6.add(v[1])
         return res.add(v[1].lower())
@@ -374,12 +398,12 @@ def _add_entry(res, ip4, ip6, v):
             _add_entry(res, ip4, ip6, i.split("|"))
             continue
         if _IPv4.fullmatch(i) is not None:
-            if i in _ALLOWED_DNS:
+            if i in _ALLOWED_DNS or _is_reserved(i, False):
                 continue
             ip4.add(i)
             continue
         if ":" in i and _IPv6.fullmatch(i) is not None:
-            if i in _ALLOWED_DNS:
+            if i in _ALLOWED_DNS or _is_reserved(i, True):
                 continue
             ip6.add(i)
             continue
