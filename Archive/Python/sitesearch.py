@@ -89,14 +89,12 @@
 
 
 import re
-import sys
 import DNS
+import sys
 import json
 import random
 import requests
 import threading
-
-
 from bs4 import BeautifulSoup
 
 """

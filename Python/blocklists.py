@@ -19,8 +19,8 @@
 
 from io import BytesIO
 from requests import get
-from re import compile, I
-from sys import stderr, exit
+from re import I, compile
+from sys import exit, stderr
 from traceback import format_exc
 from argparse import ArgumentParser
 from tarfile import open as tar_open

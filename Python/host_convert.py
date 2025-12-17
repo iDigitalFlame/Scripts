@@ -17,8 +17,8 @@
 #
 
 from requests import get
-from os.path import exists, isdir
-from sys import argv, stderr, exit
+from os.path import isdir, exists
+from sys import argv, exit, stderr
 
 
 def parse(file, dir):

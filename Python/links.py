@@ -18,11 +18,11 @@
 
 from time import sleep
 from io import StringIO
-from json import loads, dumps
-from requests import post, get
-from os.path import isdir, join, isfile
+from json import dumps, loads
+from requests import get, post
+from os.path import join, isdir, isfile
 from datetime import datetime, timedelta
-from sys import argv, stderr, stdin, stdout, exit
+from sys import argv, exit, stdin, stderr, stdout
 
 
 def bookmarks_to_xml(auth, dir):

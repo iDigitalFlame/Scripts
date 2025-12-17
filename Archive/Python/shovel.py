@@ -17,7 +17,6 @@
 
 import sys
 import json
-
 from optparse import OptionParser
 
 try:

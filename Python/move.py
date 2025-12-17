@@ -20,7 +20,7 @@ from glob import glob
 from os import rename
 from re import compile
 from sys import argv, exit, stderr
-from os.path import isdir, basename, join, isfile, splitext, abspath, exists, dirname
+from os.path import join, isdir, exists, isfile, abspath, dirname, basename, splitext
 
 
 def _move(src, prefix=""):

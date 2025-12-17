@@ -19,7 +19,6 @@ import csv
 import sys
 import random
 
-
 S_SPEC = {"WindowsDC": 0, "Linux": 0, "NetDevice": 0, "Printer?": 0}
 S_DESC = {
     "80": "Web Server",

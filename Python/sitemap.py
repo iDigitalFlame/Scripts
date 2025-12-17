@@ -19,11 +19,11 @@
 from hashlib import md5
 from requests import get
 from os.path import exists
-from sys import stderr, argv
+from sys import argv, stderr
 from bs4 import BeautifulSoup
 from datetime import datetime
 from xml.etree import ElementTree
-from json import loads, dumps, JSONDecodeError
+from json import JSONDecodeError, dumps, loads
 
 
 def _parse(url):

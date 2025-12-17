@@ -25,7 +25,7 @@
 #
 
 from io import StringIO
-from sys import exit, argv, stderr
+from sys import argv, exit, stderr
 
 
 def _file(path, max_len=80, output=None):

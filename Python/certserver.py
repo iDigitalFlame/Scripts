@@ -26,7 +26,6 @@
 #
 
 import threading
-
 from json import loads
 from html import escape
 from io import StringIO
@@ -34,11 +33,11 @@ from smtplib import SMTP
 from signal import SIGINT
 from csv import DictReader
 from os.path import isfile
-from os import getpid, kill
+from os import kill, getpid
 from datetime import datetime
-from sys import argv, stderr, exit
-from socketserver import TCPServer
 from collections import namedtuple
+from socketserver import TCPServer
+from sys import argv, exit, stderr
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from http.server import BaseHTTPRequestHandler

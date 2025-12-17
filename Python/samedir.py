@@ -18,8 +18,8 @@
 
 from hashlib import md5
 from sys import argv, exit
-from os import listdir, remove
-from os.path import isfile, abspath, join
+from os import remove, listdir
+from os.path import join, isfile, abspath
 
 
 def hash_file(path):

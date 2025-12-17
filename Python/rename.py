@@ -19,7 +19,7 @@
 from glob import glob
 from os import rename
 from sys import argv, exit
-from os.path import isfile, isdir, join, basename, dirname, splitext
+from os.path import join, isdir, isfile, dirname, basename, splitext
 
 
 def _strip(p, f, sort=False):

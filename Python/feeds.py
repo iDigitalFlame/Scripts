@@ -19,8 +19,8 @@
 from json import dumps
 from bs4 import BeautifulSoup
 from mastodon import Mastodon
-from os.path import isdir, join
-from sys import argv, stderr, exit
+from os.path import join, isdir
+from sys import argv, exit, stderr
 
 ALLOWED_TAGS = ["a", "br", "span", "p", "div"]
 ALLOWED_ATTRS = ["class", "href"]

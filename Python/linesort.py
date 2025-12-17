@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from sys import exit, stderr, argv
+from sys import argv, exit, stderr
 
 
 def _sort(contents, out=None):
