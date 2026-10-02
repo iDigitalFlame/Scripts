@@ -1,4 +1,4 @@
-// Copyright (C) 2025 iDigitalFlame
+// Copyright (C) 2025 - 2026 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 //  Also fixes xdg-open calls (since it just appends to the end).
 
 #![no_implicit_prelude]
+#![cfg(target_os = "linux")]
 #![feature(never_type)]
 
 extern crate core;
@@ -28,21 +29,34 @@ extern crate libc;
 extern crate std;
 
 use core::ffi::CStr;
-use core::iter::{ExactSizeIterator, Iterator};
+use core::mem::{drop, transmute};
 use core::option::Option::{self, None, Some};
-use core::ptr::{null, null_mut};
+use core::ptr::{copy_nonoverlapping, null_mut};
 use core::result::Result::{self, Err, Ok};
-use std::env::{ArgsOs, args_os};
+use core::sync::atomic::{AtomicPtr, AtomicU32, Ordering};
 use std::eprintln;
-use std::ffi::{CString, OsString};
+use std::ffi::OsStr;
 use std::path::Path;
 use std::process::exit;
 use std::vec::Vec;
 
 use libc::{execv, geteuid, getgrnam_r, getuid, group, setgid, setgroups, setuid};
 
-const GID_MIN: u32 = 1_000u32;
-const GID_MAX: u32 = 9_999u32;
+const GID_MIN: u32 = 9_900u32;
+const GID_MAX: u32 = 9_910u32;
+
+static ARGC: AtomicU32 = AtomicU32::new(0u32);
+static ARGV: AtomicPtr<*const i8> = AtomicPtr::new(null_mut());
+
+#[used]
+#[unsafe(link_section = ".init_array.00099")]
+static ARGV_INIT_ARRAY: extern "C" fn(u32, *const *const u8, *const *const u8) = {
+    extern "C" fn wrapper(c: u32, v: *const *const u8, _e: *const *const u8) {
+        ARGC.store(c, Ordering::Relaxed);
+        ARGV.store(v as _, Ordering::Relaxed);
+    }
+    wrapper
+};
 
 macro_rules! check {
     ($x:expr) => {
@@ -54,28 +68,25 @@ macro_rules! check {
     ($n:expr, $x:expr) => {
         let _e = unsafe { $x };
         if _e != 0 {
-            eprintln!("error: {} failed! ({})", $n, unsafe { &*libc::__errno_location() });
-            exit(1);
+            return Err(Error::Lib($n));
         }
     };
 }
 
-enum Error {
+enum Error<'a> {
     NoArgs,
     NoRoot,
-    NoAccess(CString),
     NoGroups,
     NoSetUID,
     NoFullpath,
-    FileInvalid,
-    FileArgInvalid,
-    FileNotExist(OsString),
-    GroupInvalid,
-    GroupOSError(i32),
-    GroupNotFound(CString),
+    Group(i32),
+    GroupNotFound(&'a str),
+    GroupNotAllowed(&'a str),
+    FileNotExist(&'a CStr),
+    Lib(&'a str),
 }
 
-impl Error {
+impl Error<'_> {
     #[inline]
     fn exit(&self) -> ! {
         match self {
@@ -99,23 +110,15 @@ impl Error {
                 eprintln!("error: fullpath must be used!");
                 exit(1)
             },
-            Error::FileInvalid => {
-                eprintln!("error: filepath is invalid!");
-                exit(1)
-            },
-            Error::GroupInvalid => {
-                eprintln!("error: group string is invalid!");
-                exit(1)
-            },
-            Error::FileArgInvalid => {
-                eprintln!("error: exec argument is invalid!");
-                exit(1)
-            },
-            Error::GroupOSError(e) => {
+            Error::Group(e) => {
                 eprintln!("error: group cannot be found (error {e})!");
                 exit(*e)
             },
-            Error::NoAccess(v) => {
+            Error::GroupNotFound(v) => {
+                eprintln!("error: group {v:?} was not found!");
+                exit(1)
+            },
+            Error::GroupNotAllowed(v) => {
                 eprintln!("error: group {v:?} access denied!");
                 exit(1)
             },
@@ -123,28 +126,59 @@ impl Error {
                 eprintln!("error: file {v:?} does not exist!");
                 exit(1)
             },
-            Error::GroupNotFound(v) => {
-                eprintln!("error: group {v:?} was not found!");
-                exit(1)
+            Error::Lib(v) => {
+                eprintln!("error: {} failed! ({})", v, unsafe {
+                    &*libc::__errno_location()
+                });
+                exit(1);
             },
         }
     }
 }
 
 fn main() {
-    let (mut a, u) = check!(setup());
-    let (g, e) = (check!(groups(&mut a)), check!(file(&mut a)));
-    check!("setgid", setgid(g[0]));
-    if g.len() > 1 {
-        // Supplimentry Groups
-        check!("setgroups", setgroups(g.len(), g.as_ptr()));
-    }
-    check!("setuid", setuid(u));
-    check!(exec(e, a));
+    let (a, f) = check!(setup());
+    // Contain most of the allocating calls in 'setup' so they'll be free'd
+    // regardless of the outcome of the exec call.
+    exec(&f, a);
 }
-fn setup() -> Result<(ArgsOs, u32), Error> {
-    let mut a = args_os();
-    if a.len() <= 2 {
+
+#[inline]
+fn exec(v: &CStr, a: *const *const i8) -> ! {
+    let _ = unsafe { execv(v.as_ptr(), a) };
+    // The code below never will run unless an error occurs.
+    eprintln!("error: execv failed! ({})", unsafe {
+        &*libc::__errno_location()
+    });
+    exit(2);
+}
+fn groups<'a>(v: &'a CStr) -> Result<Vec<u32>, Error<'a>> {
+    // 'b' stores the backing buffer that will be free'd once we're done.
+    // 's' stores a copy of our name buffer for reading, so we don't modify
+    //     the initial args block.
+    let (mut g, mut b) = (Vec::new(), Vec::new());
+    let mut s = Vec::with_capacity(v.to_bytes().len() + 1);
+    s.resize(s.capacity(), 0); // Resize it to the max size of 'v' + NULL.
+    for i in v.to_bytes().split(|v| *v == b':') {
+        if i.is_empty() {
+            continue; // Ignore empty names
+        }
+        unsafe {
+            copy_nonoverlapping(i.as_ptr(), s.as_mut_ptr(), i.len());
+            *s.get_unchecked_mut(i.len()) = 0u8; // NULL
+        };
+        match gid(&mut b, &s)? {
+            Some(0..GID_MIN | GID_MAX..) => return Err(Error::GroupNotAllowed(unsafe { transmute(i) })),
+            Some(r) if g.contains(&r) => (),
+            Some(r) => g.push(r),
+            None => return Err(Error::GroupNotFound(unsafe { transmute(i) })),
+        }
+    }
+    if g.is_empty() { Err(Error::NoGroups) } else { Ok(g) }
+}
+fn setup<'a>() -> Result<(*const *const i8, &'a CStr), Error<'a>> {
+    let n = ARGC.load(Ordering::Relaxed);
+    if n < 3 {
         return Err(Error::NoArgs);
     }
     let u = unsafe { getuid() };
@@ -153,60 +187,29 @@ fn setup() -> Result<(ArgsOs, u32), Error> {
         (_, true) => return Err(Error::NoSetUID),
         _ => (),
     }
-    // Check if first arg (arg[0]) starts with '/'
-    //
-    // SAFETY: Cannot be None as the 'len' check passed.
-    if unsafe { a.next().unwrap_unchecked() }
-        .as_encoded_bytes()
-        .first()
-        .is_none_or(|v| *v != b'/')
-    {
+    let s = ARGV.load(Ordering::Relaxed);
+    // Check if first arg (arg[0]) starts with '/'. We don't need to read
+    // the full string, just the first char.
+    if unsafe { *s.read() as u8 } != b'/' {
         return Err(Error::NoFullpath);
     }
-    Ok((a, u))
-}
-#[inline]
-fn file(a: &mut ArgsOs) -> Result<CString, Error> {
-    // SAFETY: Cannot be None as the 'len' check passed.
-    let v = unsafe { a.next().unwrap_unchecked() };
-    if !Path::new(&v).is_file() {
-        return Err(Error::FileNotExist(v));
+    let f = unsafe { CStr::from_ptr(s.add(2).read()) };
+    if !Path::new(unsafe { OsStr::from_encoded_bytes_unchecked(f.to_bytes()) }).is_file() {
+        return Err(Error::FileNotExist(f));
     }
-    CString::new(v.as_encoded_bytes()).map_err(|_| Error::FileInvalid)
-}
-fn exec(e: CString, a: ArgsOs) -> Result<!, Error> {
-    let (mut b, mut c) = (
-        Vec::with_capacity(a.len() + 1),
-        Vec::with_capacity(a.len() + 1),
-    );
-    c.push(e.as_ptr());
-    for i in a {
-        let v = CString::new(i.as_encoded_bytes()).map_err(|_| Error::FileArgInvalid)?;
-        c.push(v.as_ptr());
-        b.push(v);
+    let g = groups(unsafe { CStr::from_ptr(s.add(1).read()) })?;
+    // SAFETY: We return an error if the list is empty, 'g' will always be
+    //         at least size of 1 here.
+    check!("setgid", setgid(*g.first().unwrap_unchecked()));
+    if g.len() > 1 {
+        // Set Supplimentry Groups (if supplied)
+        check!("setgroups", setgroups(g.len(), g.as_ptr()));
     }
-    // Add Null ending.
-    c.push(null());
-    check!("execv", execv(e.as_ptr(), c.as_ptr()));
-    // Never will run
-    exit(0)
+    check!("setuid", setuid(u));
+    drop(g); // 'g' should be dropped here
+    Ok(unsafe { (s.add(2), f) })
 }
-fn groups(a: &mut ArgsOs) -> Result<Vec<u32>, Error> {
-    // SAFETY: Cannot be None as the 'len' check passed.
-    let n = unsafe { a.next().unwrap_unchecked() };
-    let (mut g, mut b) = (Vec::new(), Vec::new());
-    for i in n.as_encoded_bytes().split(|v| *v == b':') {
-        let v = CString::new(i).map_err(|_| Error::GroupInvalid)?;
-        match gid(&mut b, &v)? {
-            Some(0..GID_MIN | GID_MAX..) => return Err(Error::NoAccess(v)),
-            Some(r) if g.contains(&r) => (),
-            Some(r) => g.push(r),
-            None => return Err(Error::GroupNotFound(v)),
-        }
-    }
-    if g.is_empty() { Err(Error::NoGroups) } else { Ok(g) }
-}
-fn gid(b: &mut Vec<u8>, n: &CStr) -> Result<Option<u32>, Error> {
+fn gid<'a>(b: &mut Vec<u8>, n: &[u8]) -> Result<Option<u32>, Error<'a>> {
     let mut g = group {
         gr_gid:    0u32,
         gr_mem:    null_mut(),
@@ -215,7 +218,7 @@ fn gid(b: &mut Vec<u8>, n: &CStr) -> Result<Option<u32>, Error> {
     };
     let mut i = 256usize;
     loop {
-        b.resize(i, 0u8);
+        b.resize(i, 0);
         let mut o = null_mut();
         let r = unsafe {
             getgrnam_r(
@@ -229,7 +232,7 @@ fn gid(b: &mut Vec<u8>, n: &CStr) -> Result<Option<u32>, Error> {
         match r {
             0x22 => i *= 2,
             0x0 => break Ok(unsafe { o.as_ref() }.map(|v| v.gr_gid)),
-            e => break Err(Error::GroupOSError(e)),
+            e => break Err(Error::Group(e)),
         }
     }
 }

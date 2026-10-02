@@ -147,7 +147,7 @@ if __name__ == "__main__":
             exit(1)
         try:
             with open(join(argv[2], f"{f}.json"), "w") as x:
-                x.write(dumps(r, indent="    ", sort_keys=False))
+                x.write(dumps(r, indent=4, sort_keys=False))
         except Exception as err:
             print(f'User entry file "{f}" write error: {err}', file=stderr)
             exit(1)

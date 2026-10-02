@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (C) 2023 iDigitalFlame
+# Copyright (C) 2023 - 2026 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,13 +15,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+
 # On the Windows CA Side, use the PowerShell script:
 #
 # try {
 #   Invoke-WebRequest http://<target>/<key> -Method POST -Body ((certutil -view csv) -join '`n') -Content 'text/plain'
 # } catch {}
 #
-# to operate
+# to operate.
+#
 # It's easiest to run this in a repeating task daily/weekly.
 #
 

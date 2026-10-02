@@ -1,9 +1,6 @@
 //go:build linux
 // +build linux
 
-// prune.go
-// Files prune script, deletes files older than the specified amount of days.
-//
 // Copyright (C) 2021 - 2023 iDigitalFlame
 //
 // This program is free software: you can redistribute it and/or modify

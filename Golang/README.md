@@ -5,8 +5,6 @@ Go manages single script files).
 
 ## Contents
 
-- *AppXPruner*: Removes a list of defined AppX Packages
 - *FilePrune*: Automatically prunes files based on their timestamps
-- *GroupHelper*: Switch to a group to help "containerize" applications or give them separate permissions
-- *Motivate*: Displays quotes and stuff
+- *Proxy*: Simple HTTP reverse proxy
 - *WebScan*: Web-based network scanning

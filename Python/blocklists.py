@@ -1,7 +1,6 @@
 #!/usr/bin/python3
-# Blocklist Downloader and Parser
 #
-# Copyright (C) 2024 - 2025 iDigitalFlame
+# Copyright (C) 2024 - 2026 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,17 +16,18 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from io import BytesIO
+# Blocklist Downloader and Parser
+
 from requests import get
 from re import I, compile
+from tarfile import TarFile
 from sys import exit, stderr
 from traceback import format_exc
 from argparse import ArgumentParser
-from tarfile import open as tar_open
 from urllib.request import getproxies
-from os.path import exists, isfile, expanduser, expandvars
+from os.path import expanduser, expandvars
 
-_Locals = [
+LOCALS = [
     "::1",
     "0.0.0.0",
     "127.0.0.1",
@@ -42,13 +42,22 @@ _Locals = [
     "localhost",
     "localhost.localdomain",
 ]
-_Reserved_IPv4 = ["172.16.", "10.", "192.168.", "127.0.0.1", "169.254." "224.0"]
-_Reserved_IPv6 = ["fc00:", "fe80:", "ff00:"]
+RESERVED_IPV4 = ["172.16.", "10.", "192.168.", "127.0.0.1", "169.254." "224.0"]
+RESERVED_IPV6 = ["fc00:", "fe80:", "ff00:"]
 
-_IPv4 = compile(
+AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+DNS = [
+    "1.0.0.1",
+    "1.1.1.1",
+    "2606:4700:4700::1001",
+    "2606:4700:4700::1111",
+]
+PROXY = getproxies()
+
+IPV4 = compile(
     r"^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})(/[0-9]{0,2}){0,1}$"
 )
-_IPv6 = compile(
+IPV6 = compile(
     r"^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]"
     r"{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|"
     r"([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|"
@@ -57,16 +66,6 @@ _IPv6 = compile(
     r"(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}"
     r"(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))(/[0-9]{0,2}){0,1}$"
 )
-
-_ALLOWED_DNS = [
-    "1.0.0.1",
-    "1.1.1.1",
-    "2606:4700:4700::1001",
-    "2606:4700:4700::1111",
-]
-
-PROXIES = getproxies()
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
 
 def _main():
@@ -131,317 +130,349 @@ def _main():
     )
     p.add_argument(
         "--no-break",
-        dest="no_break",
+        dest="errors",
         help="Don't fail on URL download errors.",
-        action="store_true",
+        action="store_false",
         required=False,
     )
-    a, r, q = p.parse_args(), None, None
-    if isinstance(a.extra, str) and len(a.extra) > 0:
-        try:
-            q = _extra(expanduser(expandvars(a.extra)))
-        except Exception as err:
-            print(f"Error reading and parsing extra domains: {err}!", file=stderr)
-            print(format_exc(limit=3), file=stderr)
-            return exit(1)
-    if isinstance(a.rules, str) and len(a.rules) > 0:
-        try:
-            r = _rules(expanduser(expandvars(a.rules)))
-        except Exception as err:
-            print(f"Error compiling rules: {err}!", file=stderr)
-            print(format_exc(limit=3), file=stderr)
-            return exit(1)
-    if r is not None:
-        print(f'Compiled {len(r)} rules from "{a.rules}"')
-    e, i4, i6, eo = set(), set(), set(), False
-    try:
-        for u in _read(expanduser(expandvars(a.urls))):
-            print(f'Downloading "{u}"..')
-            try:
-                _download(e, i4, i6, u)
-            except Exception as err:
-                eo = True
-                if a.no_break:
-                    print(
-                        f"Error downloading and parsing URL {u}: {err}, skipping entry!",
-                        file=stderr,
-                    )
-                    continue
-                raise err
-    except Exception as err:
-        print(f"Error downloading and parsing URLs: {err}!", file=stderr)
-        print(format_exc(limit=3), file=stderr)
-        return exit(1)
-    print(
-        f"Downloaded {len(e)} Domain Names, {len(i4)} IPv4 Addresses and {len(i6)} IPv6 Addresses."
-    )
-    if q is not None and len(q) > 0:
-        for i in q:
-            e.add(i.lower())
-        print(f"Added {len(q)} additional domains.")
-    del q
-    if r is not None:
-        print(f"Checking {len(e)} Domains against ruleset..")
-        o, p, m, u = list(), 0, len(e), 0
-        for x, i in enumerate(e):
-            p = int(round((x / m) * 100, 0))
-            if p > u and p % 10 == 0 and p < 100:
-                print(f"Checking {p}% ({x}/{m}) complete..")
-                u = p
-            if not _check(r, i):
-                continue
-            o.append(i)
-        del p, m, u
-        o.sort()
-        print(f"Removed {len(e) - len(o)} Domain Names from the ruleset.")
-    else:
-        o = sorted(e)
-    del e, r
-    print(f'Writing {len(o)} Domain Names to file "{a.out}"..')
-    try:
-        with open(expanduser(expandvars(a.out)), "w") as f:
-            for v in o:
-                f.write(f"0.0.0.0 {v}\n")
-    except Exception:
-        print(f'Error saving output to "{a.out}"!', file=stderr)
-        print(format_exc(limit=3), file=stderr)
-        return exit(1)
-    del o
-    if a.ipv4:
-        print(f'Writing {len(i4)} IPv4 Addresses to file "{a.ipv4}"..')
-        try:
-            with open(expanduser(expandvars(a.ipv4)), "w") as f:
-                f.write("\n".join(i4))
-        except Exception:
-            print(f'Error saving output to "{a.ipv4}"!', file=stderr)
-            print(format_exc(limit=3), file=stderr)
-            return exit(1)
-    if a.ipv6:
-        print(f'Writing {len(i6)} IPv6 Addresses to file "{a.ipv6}"..')
-        try:
-            with open(expanduser(expandvars(a.ipv6)), "w") as f:
-                f.write("\n".join(i6))
-        except Exception:
-            print(f'Error saving output to "{a.ipv6}"!', file=stderr)
-            print(format_exc(limit=3), file=stderr)
-            return exit(1)
-    del i4, i6, a
-    if eo:
-        print("Done, but error occuring during runtime!")
-        exit(1)
+    a = p.parse_args()
+    del p
+    r, x = Rules(a.rules), Parser()
+    e = x.download(a.urls, a.errors)
+    x.add(a.extra)
+    x.validate(r)
+    del r
+    x.save(a.out, a.ipv4, a.ipv6)
+    del a, x
+    if not e:
+        print("Done, but errors occurred during download/parsing!")
+        exit(2)
     print("Done!")
-
-
-def _read(file):
-    if not exists(file):
-        raise OSError(f'List file path "{file}" does not exist')
-    with open(file) as f:
-        d = f.read()
-    if d is None or len(d) == 0:
-        return None
-    r = set()
-    for i in d.split("\n"):
-        if len(i) == 0 or i[0] == "#":
-            continue
-        e = i.strip()
-        if len(e) == 0 or e[0] == "#":
-            continue
-        del i
-        if e in r:
-            print(f'Duplicate entry "{e}" found.', file=stderr)
-            continue
-        if not e.startswith("http"):
-            print(f'Skipping invalid entry "{e}".', file=stderr)
-            continue
-        r.add(e)
-        del e
-    del d
-    return sorted(r)
-
-
-def _rules(file):
-    if not isfile(file):
-        raise OSError(f'Rules file path "{file}" does not exist')
-    with open(file) as f:
-        d = f.read()
-    if d is None or len(d) == 0:
-        return None
-    r = list()
-    for i in d.split("\n"):
-        if len(i) == 0 or i[0] == "#":
-            continue
-        e = i.strip()
-        if len(e) == 0 or e[0] == "#":
-            continue
-        del i
-        try:
-            r.append(compile(e, I))
-        except Exception as err:
-            raise OSError(f'Regex rule "{e}" failed to compile: {err}') from err
-        del e
-    del d
-    if len(r) == 0:
-        return None
-    return r
-
-
-def _extra(file):
-    if not exists(file):
-        raise OSError(f'Extra file path "{file}" does not exist')
-    with open(file) as f:
-        d = f.read()
-    if d is None or len(d) == 0:
-        return None
-    r = list()
-    for i in d.split("\n"):
-        if len(i) == 0 or i[0] == "#":
-            continue
-        e = i.strip()
-        if len(e) == 0 or e[0] == "#":
-            continue
-        del i
-        r.append(e)
-        del e
-    del d
-    if len(r) == 0:
-        return None
-    r.sort()
-    return r
-
-
-def _check(rules, e):
-    if rules is None:
-        return True
-    for i in rules:
-        if i.fullmatch(e) is not None:
-            return False
-    return True
+    del e
 
 
 def _is_reserved(v, v6):
     if v6:
-        for i in _Reserved_IPv6:
+        for i in RESERVED_IPV6:
             if v.startswith(i):
                 return True
         return False
-    for i in _Reserved_IPv4:
+    for i in RESERVED_IPV4:
         if v.startswith(i):
             return True
     return False
 
 
-def _download_parse(url, data):
-    if not url.endswith(".tar.gz"):
-        return data.decode("UTF-8")
-    b = BytesIO(data)
-    f, d = tar_open(fileobj=b), None
-    try:
-        n = url[url.rfind("/") + 1 :]
-    except (IndexError, TypeError):
-        n = None
-    for i in f.getmembers():
-        if i.name.endswith("/domains") or (
-            isinstance(n, str) and len(n) > 0 and i.name.endswith(n)
-        ):
-            d = f.extractfile(i).read().decode("UTF-8")
-            break
-    if not isinstance(d, str) or len(d) == 0:
-        m = f.getmembers()
-        if len(m) > 0:
-            d = f.extractfile(m[0]).read().decode("UTF-8")
-            if "\n" not in d:
-                d = None
-        del m
-    f.close()
-    b.close()
-    del b, f
-    if not isinstance(d, str) or len(d) == 0:
-        raise OSError(f'URL "{url}" tar entry is not valid or is empty')
-    return d
+class Rules(object):
+    __slots__ = ("x", "empty")
 
+    def __init__(self, rules):
+        self.x = list()
+        self._load(rules)
+        self.empty = len(self.x) == 0
 
-def _add_entry(res, ip4, ip6, v):
-    if len(v) == 0:
-        return
-    if len(v) == 1:
-        if v[0] in _Locals:
+    def check(self, v):
+        if self.empty:
+            return True
+        for i in self.x:
+            if i.fullmatch(v) is not None:
+                return False
+        return True
+
+    def _load(self, rules):
+        if not isinstance(rules, str) or len(rules) == 0:
             return
-        if "|" in v[0]:
-            return _add_entry(res, ip4, ip6, v[0].split("|"))
-        if _IPv4.fullmatch(v[0]) is not None:
-            if v[0] in _ALLOWED_DNS or _is_reserved(v[0], False):
-                return
-            return ip4.add(v[0])
-        if ":" in v[0] and _IPv6.fullmatch(v[0]) is not None:
-            if v[0] in _ALLOWED_DNS or _is_reserved(v[0], True):
-                return
-            return ip6.add(v[0])
-        return res.add(v[0].lower())
-    if len(v) == 2:
-        if v[1] in _Locals:
-            return
-        if "|" in v[1]:
-            return _add_entry(res, ip4, ip6, v[1].split("|"))
-        if _IPv4.fullmatch(v[1]) is not None:
-            if v[1] in _ALLOWED_DNS or _is_reserved(v[1], False):
-                return
-            return ip4.add(v[1])
-        if ":" in v[1] and _IPv6.fullmatch(v[1]) is not None:
-            if v[1] in _ALLOWED_DNS or _is_reserved(v[1], True):
-                return
-            return ip6.add(v[1])
-        return res.add(v[1].lower())
-    for i in v:
-        if i in _Locals:
-            continue
-        if "|" in i:
-            _add_entry(res, ip4, ip6, i.split("|"))
-            continue
-        if _IPv4.fullmatch(i) is not None:
-            if i in _ALLOWED_DNS or _is_reserved(i, False):
-                continue
-            ip4.add(i)
-            continue
-        if ":" in i and _IPv6.fullmatch(i) is not None:
-            if i in _ALLOWED_DNS or _is_reserved(i, True):
-                continue
-            ip6.add(i)
-            continue
-        res.add(i.lower())
-
-
-def _download(res, ip4, ip6, url):
-    with get(
-        url, stream=True, headers={"User-Agent": USER_AGENT}, proxies=PROXIES
-    ) as r:
-        if r.status_code != 200:
-            raise OSError(f'URL "{url}" returned non-OK status code {r.status_code}')
-        d = _download_parse(url, r.content)
-        r.close()
-    for i in d.split("\n"):
-        if len(i) == 0 or i[0] == "#" or i[0] == ";":
-            continue
-        e = i.strip()
-        del i
-        if len(e) == 0 or e[0] == "#" or e[0] == ";":
-            continue
-        v = e.find("#")
-        if v == -1:
-            v = e.find(";")
-        if v > 0 and v < len(e):
-            e = e[:v]
+        v = expanduser(expandvars(rules))
+        try:
+            with open(v) as f:
+                while True:
+                    i = f.readline()
+                    if len(i) == 0:
+                        break
+                    if len(i) == 1 or i[0] == "#":
+                        continue
+                    e = i.strip()
+                    del i
+                    if len(e) == 0 or e[0] == "#":
+                        continue
+                    try:
+                        if "$" in e or "^" in e or "\\" in e or ")" in e or "(" in e:
+                            self.x.append(compile(e, I))
+                            continue
+                        x = "^"
+                        if e[0] == "*":
+                            x, e = r"^((.+\.)?)", e[1:]  # Wildcard Rule
+                        elif e[0] == "+":
+                            x, e = r"^((www\.)?)", e[1:]  # Root + www Rule
+                        self.x.append(compile(f"{x}{e.replace(".", "\\.")}$", I))
+                        del x
+                    except Exception as err:
+                        raise OSError(f'cannot compile rule "{e}": {err}')
+                    finally:
+                        del e
+        except OSError as err:
+            raise OSError(f'cannot parse rules list "{v}": {err}')
+        print(f'Compiled {len(self.x)} rules from "{v}"')
         del v
-        if len(e) == 0:
-            continue
-        n = e.split()
-        del e
-        if len(n) == 0:
-            continue
-        if len(n) > 1:
-            n = n[1:]
-        _add_entry(res, ip4, ip6, n)
-        del n
-    del d
+
+
+class Parser(object):
+    __slots__ = ("ip4", "ip6", "entries")
+
+    def __init__(self):
+        self.ip4, self.ip6, self.entries = set(), set(), set()
+
+    def _add(self, v):
+        if len(v) == 1:
+            return self._entry(v[0])
+        if len(v) == 2:
+            return self._entry(v[1])
+        for i in v:
+            self._entry(i)
+
+    def _get(self, url):
+        with get(url, stream=True, headers={"User-Agent": AGENT}, proxies=PROXY) as r:
+            if r.status_code != 200:
+                raise OSError(f"non-OK status code {r.status_code}")
+            if not url.endswith(".tar.gz"):
+                return self._parse(Reader(r))
+            return self._parse_tar(url, r.raw)
+
+    def _entry(self, v):
+        if len(v) == 0 or v in LOCALS:
+            return
+        if "|" in v:
+            for i in v.split("|"):
+                self._entry(i)
+            return
+        if IPV4.fullmatch(v) is not None:
+            if v in DNS or _is_reserved(v, False):
+                return
+            return self.ip4.add(v)
+        if ":" in v and IPV6.fullmatch(v) is not None:
+            if v in DNS or _is_reserved(v, True):
+                return
+            return self.ipv6.add(v)
+        self.entries.add(v.lower())
+
+    def _parse(self, f):
+        while True:
+            v = f.readline()
+            if len(v) == 0:
+                break
+            if len(v) == 1:
+                continue
+            if len(v) == 0 or v[0] == "#" or v[0] == ";" or v[0] == "!":
+                continue
+            i = v.strip()
+            del v
+            if len(i) == 0 or i[0] == "#" or i[0] == ";" or i[0] == "!":
+                continue
+            r = i.find("#")
+            if r == -1:
+                r = i.find(";")
+            if r > 0 and r < len(i):
+                i = i[:r]
+            del r
+            if len(i) < 3 or "http:" in i or "https:" in i or "." not in i or "/" in i:
+                continue
+            if i[0] == "|" and i[1] == "|":
+                i = i[2:]
+            if i[-1] == "^":
+                i = i[:-1]
+            if i[-1] == "/":
+                i = i[:-1]
+            if "\\" in i:
+                i = i.replace("\\", "")
+            v = i.lower().split()
+            del i
+            if len(v) == 0:
+                continue
+            if len(v) > 1:
+                self._add(v[1:])
+            else:
+                self._add(v)
+            del v
+
+    def add(self, extras):
+        if not isinstance(extras, str) or len(extras) == 0:
+            return
+        n, v = 0, expanduser(expandvars(extras))
+        try:
+            with open(v) as f:
+                while True:
+                    i = f.readline()
+                    if len(i) == 0:
+                        break
+                    if len(i) == 1 or i[0] == "#":
+                        continue
+                    e = i.strip()
+                    del i
+                    if len(e) == 0 or e[0] == "#":
+                        continue
+                    self._entry(e)
+                    n += 1
+                    del e
+        except OSError as err:
+            raise OSError(f'cannot parse extras list "{v}": {err}')
+        print(f'Added {n} additional domains from "{v}".')
+        del n, v
+
+    def validate(self, rules):
+        self.entries = list(self.entries)
+        if not isinstance(rules, Rules):
+            return
+        print(f"Checking {len(self.entries)} Domains against rulesets..")
+        c, n, r = 0, len(self.entries), 0
+        for x, i in enumerate(self.entries):
+            v = int(round((x / n) * 100, 0))
+            if v > c and v % 10 == 0 and v < 100:
+                print(f"Checking {v}% ({x}/{n}) complete..")
+                c = v
+            del v
+            if rules.check(i):
+                continue
+            r += 1
+            self.entries[x] = None
+        del c, n
+        print(f"Removed {r} Domains.")
+        del r
+
+    def _parse_tar(self, url, raw):
+        try:
+            n = url[url.rfind("/") + 1 :]
+        except (IndexError, TypeError):
+            n = None
+        with TarFile.open(mode="r|*", fileobj=raw) as f:
+            p = None
+            while True:
+                v = f.next()
+                if v is None:
+                    break
+                if v.name.endswith("/domains") or (n and v.name.endswith(n)):
+                    with f.extractfile(v) as e:
+                        return self._parse(Decoder(e))
+                p = v
+                del v
+            try:
+                with f.extractfile(p):
+                    return self._prase(v)
+            finally:
+                del p
+
+    def download(self, urls, errors=True):
+        u, v = set(), expanduser(expandvars(urls))
+        try:
+            with open(v) as f:
+                while True:
+                    i = f.readline()
+                    if len(i) == 0:
+                        break
+                    if len(i) == 1 or i[0] == "#":
+                        continue
+                    e = i.strip()
+                    del i
+                    if len(e) == 0 or e[0] == "#":
+                        continue
+                    if e in u:
+                        print(f'Duplicate URL entry "{e}" found.', file=stderr)
+                        continue
+                    if not e.startswith("http"):
+                        if errors:
+                            raise OSError(f'invalid URL entry "{e}"')
+                        print(
+                            f'WARNING: Skipping invalid URL entry "{e}".', file=stderr
+                        )
+                        continue
+                    u.add(e)
+                    del e
+        except OSError as err:
+            raise OSError(f'cannot parse URLs list "{v}": {err}')
+        print(f'Read {len(u)} URLs from "{v}".')
+        del v
+        if len(u) == 0:
+            return
+        e = True
+        for i in sorted(u):
+            print(f'Downloading "{i}"..')
+            try:
+                self._get(i)
+            except OSError as err:
+                if errors:
+                    raise OSError(f'cannot download and parse URL "{i}": {err}')
+                print(
+                    f'WARNING: Failed to download and parse URL "{i}": {err}',
+                    file=stderr,
+                )
+                e = False
+        del u
+        print(
+            f"Downloaded {len(self.entries)} Domain Names, {len(self.ip4)} IPv4 Addresses "
+            f"and {len(self.ip6)} IPv6 Addresses."
+        )
+        return e
+
+    def save(self, out, ip4=None, ip6=None):
+        v = expanduser(expandvars(out))
+        print(f'Writing {len(self.entries)} Domain Names to "{v}"..')
+        try:
+            with open(v, "w") as f:
+                for i in self.entries:
+                    if i is None:
+                        continue
+                    f.write(f"0.0.0.0 {i}\n")
+        except Exception as err:
+            raise OSError(f'cannot write domains to "{v}": {err}')
+        del v
+        if isinstance(ip4, str) and len(ip4) > 0:
+            v = expanduser(expandvars(ip4))
+            print(f'Writing {len(self.ip4)} IPv4 Addresses to "{v}"..')
+            try:
+                with open(v, "w") as f:
+                    for i in self.ip4:
+                        f.write(f"{i}\n")
+            except Exception as err:
+                raise OSError(f'cannot write IPv4 addresses to "{v}": {err}')
+            del v
+        if not isinstance(ip6, str) or len(ip6) == 0:
+            return
+        v = expanduser(expandvars(ip6))
+        print(f'Writing {len(self.ip6)} IPv6 Addresses to "{v}"..')
+        try:
+            with open(v, "w") as f:
+                for i in self.ip6:
+                    f.write(f"{i}\n")
+        except Exception as err:
+            raise OSError(f'cannot write IPv6 addresses to "{v}": {err}')
+        del v
+
+
+class Reader(object):
+    __slots__ = ("_x",)
+
+    def __init__(self, v):
+        self._x = v.iter_lines(decode_unicode=True)
+
+    def readline(self):
+        try:
+            v = self._x.__next__()
+            if len(v) == 0:
+                return "\n"
+            if isinstance(v, bytes):
+                return v.decode("UTF-8")
+            return v
+        except StopIteration:
+            return str()
+
+
+class Decoder(object):
+    __slots__ = ("_x",)
+
+    def __init__(self, v):
+        self._x = v
+
+    def readline(self):
+        return self._x.readline().decode("UTF-8")
 
 
 if __name__ == "__main__":
@@ -450,3 +481,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Interrupted!", file=stderr)
         exit(3)
+    except Exception as err:
+        print(f"Error: {err}!", file=stderr)
+        print(format_exc(limit=5), file=stderr)
+        exit(1)

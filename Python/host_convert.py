@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (C) 2023 - 2025 iDigitalFlame
+# Copyright (C) 2023 - 2026 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -81,6 +81,10 @@ def download(url, name):
         for e in d.split("\n"):
             if len(e) == 0 or e[0] == "#":
                 continue
+            if len(e) > 2 and e[0] == "|" and e[1] == "|":
+                e = e[2:]
+            if len(e) > 1 and e[-1] == "^":
+                e = e[:-1]
             if " " not in e:
                 o.write(f"0.0.0.0 {e}\n")
                 continue

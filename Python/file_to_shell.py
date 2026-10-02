@@ -1,14 +1,6 @@
 #!/usr/bin/python3
-# Minifies files into printf statements for easy transport and scripting.
 #
-# Usage:
-#   ./mini.py <max_len> <target_file> [print_output]
-#
-# Example:
-#   ./mini.py 25 mycomplexscript.sh
-#   ./mini.py 80 /etc/systemd/journald.conf /opt/journald.conf
-#
-# Copyright (C) 2020 - 2023 iDigitalFlame
+# Copyright (C) 2020 - 2026 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,6 +14,16 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+# Minifies files into printf statements for easy transport and scripting.
+#
+# Usage:
+#   ./mini.py <max_len> <target_file> [print_output]
+#
+# Example:
+#   ./mini.py 25 mycomplexscript.sh
+#   ./mini.py 80 /etc/systemd/journald.conf /opt/journald.conf
 #
 
 from io import StringIO

@@ -64,7 +64,4 @@ if __name__ == "__main__":
         print(f"{argv[0]} [--delete] <dir>")
         exit(2)
 
-    if len(argv) == 3 and argv[1] == "--delete":
-        identify(argv[2], True)
-    else:
-        identify(argv[1], False)
+    identify(argv[2], len(argv) == 3 and argv[1] == "--delete")

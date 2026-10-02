@@ -1,6 +1,6 @@
 # AppXPrune
 
-__Windows Only__
+__This is Windows specific application.__
 
 Removes a list of defined AppX Packages.
 

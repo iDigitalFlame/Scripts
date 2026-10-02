@@ -16,77 +16,76 @@
 #
 
 """
-    SiteSearch.py
-    Written by iDigitalFlame for the Scorebot Project
+SiteSearch.py
+Written by iDigitalFlame for the Scorebot Project
 
-    Scans through a site looking for <a href=""> (links) internal to the site.
-    Pages that are scanned are added to the 'pages' var.  Pages that have failed or are unreachable are in 'failed'
+Scans through a site looking for <a href=""> (links) internal to the site.
+Pages that are scanned are added to the 'pages' var.  Pages that have failed or are unreachable are in 'failed'
 
-    A page is considered 'unreachable' if any of the following conditions occur:
-        - A HTTP Response that is NOT 200 is received
-        - The page URL is located on a separate domain or subdomain that the sitebase
-        - The page URL is higher up in the URL structure that the sitebase
-        - The page is not a text or html based file
+A page is considered 'unreachable' if any of the following conditions occur:
+    - A HTTP Response that is NOT 200 is received
+    - The page URL is located on a separate domain or subdomain that the sitebase
+    - The page URL is higher up in the URL structure that the sitebase
+    - The page is not a text or html based file
 
-    The search is threaded, so you can come back to check when it is done once starting the scan.
-    The Debug flag will just output all actions that the search is doing to standard output.
+The search is threaded, so you can come back to check when it is done once starting the scan.
+The Debug flag will just output all actions that the search is doing to standard output.
 
-    SiteSeach can also loginto web pages for ultimate searching:
-        Just provide the URL to the login page (POST assumed),
-        The login username and password
-        and the text fields (inputs) that are used to login (the names)
+SiteSeach can also loginto web pages for ultimate searching:
+    Just provide the URL to the login page (POST assumed),
+    The login username and password
+    and the text fields (inputs) that are used to login (the names)
 
-    Paramaters:
-        siteurl= (Base Search IP/Name)
-        loginpage= (Default:None; The URL/URI to the login page (full path not needed))
-        username= (Default:None; The username to login as)
-        usernamefm= (Default:None; The input name of the username textbox)
-        password= (Default:None; The password to use to login)
-        passwordfm= (Default:None; The input name of the password textbox)
-        debug= (Default:False; Shows Debug/Verbose messages on the console)
-        forms= (Default:True; Searches and captures form paths/verbs/inputs with urls)
-        timeout= (Default:6; The Connection and read timeouts used by Requests)
-        keywords= (Default:10; The amount of keywords to gather)
-        maxpages= (Default:0; The max amount of pages to gather (Login page does not count). 0 is no limit)
-        fullpath= (Default:False;) Changes the way that urls are stored in the JSON.  Defaults to false (no lead url)
+Paramaters:
+    siteurl= (Base Search IP/Name)
+    loginpage= (Default:None; The URL/URI to the login page (full path not needed))
+    username= (Default:None; The username to login as)
+    usernamefm= (Default:None; The input name of the username textbox)
+    password= (Default:None; The password to use to login)
+    passwordfm= (Default:None; The input name of the password textbox)
+    debug= (Default:False; Shows Debug/Verbose messages on the console)
+    forms= (Default:True; Searches and captures form paths/verbs/inputs with urls)
+    timeout= (Default:6; The Connection and read timeouts used by Requests)
+    keywords= (Default:10; The amount of keywords to gather)
+    maxpages= (Default:0; The max amount of pages to gather (Login page does not count). 0 is no limit)
+    fullpath= (Default:False;) Changes the way that urls are stored in the JSON.  Defaults to false (no lead url)
 
-    Notes:
-        maxpages will only stop the scan if the count of scanned pages equals this number.
-        Pages with a smaller number will stop when they are done.  Form actions count against this value.
+Notes:
+    maxpages will only stop the scan if the count of scanned pages equals this number.
+    Pages with a smaller number will stop when they are done.  Form actions count against this value.
 
-    Example with login:
-        Scan and search a Orange HRM site with login. (Credentials in this example are admin/chiapet1)
+Example with login:
+    Scan and search a Orange HRM site with login. (Credentials in this example are admin/chiapet1)
 
-        SiteSearch("<ip/hostname>", loginpage="/symfony/web/index.php/auth/validateCredentials", username="admin",
-                    usernamefm="txtUsername", password="chiapet1", passwordfm="txtPassword")
+    SiteSearch("<ip/hostname>", loginpage="/symfony/web/index.php/auth/validateCredentials", username="admin",
+                usernamefm="txtUsername", password="chiapet1", passwordfm="txtPassword")
 
-    Usage:
-        a = SiteSearch(site='URL/IP TO SITE', debug=(True|False))
-        a.start()
+Usage:
+    a = SiteSearch(site='URL/IP TO SITE', debug=(True|False))
+    a.start()
 
-        #// Use one of the above {
-        While a.isAlive():
-            None
-        #// Or
-        While Not a.isDone():
-            None
-        }
+    #// Use one of the above {
+    While a.isAlive():
+        None
+    #// Or
+    While Not a.isDone():
+        None
+    }
 
-        print("Results %s" % a.pages)
+    print("Results %s" % a.pages)
 
 
-    The script can also be ran to append searched entries to a CTF json file.
-    Using this syntax
+The script can also be ran to append searched entries to a CTF json file.
+Using this syntax
 
-    python sitesearch.py <jsonfile.json>
-    -or-
-    sitesearch.py <jsonfile.json>
+python sitesearch.py <jsonfile.json>
+-or-
+sitesearch.py <jsonfile.json>
 
-    Replace <jsonfile.json> with the full or absolute path to your file.
-    The contents will be written in the same file and the original will be backed up and named <jsonfile.json>.bak
+Replace <jsonfile.json> with the full or absolute path to your file.
+The contents will be written in the same file and the original will be backed up and named <jsonfile.json>.bak
 
 """
-
 
 import re
 import DNS

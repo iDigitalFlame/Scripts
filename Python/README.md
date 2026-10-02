@@ -4,8 +4,6 @@ Simple and small Python scripts that I find useful.
 
 ## Contents
 
-- *agents.py*: Downloads a list of entries from "botsvsbrowsers.org" and makes a list
-  useful for importing into the "User Agent Switcher" extension.
 - *blocklists.py*: Downloads hostfiles contained in a URL list and parses them. Has the
   ability to remove entries based on Regex matches.
 - *certserver.py*: HTTP Server listener that can be used to monitor certificate expiry
@@ -17,12 +15,16 @@ Simple and small Python scripts that I find useful.
 - *linesort.py*: Breaks config files into lines and reformats them with padding.
 - *links.py*: Downloads Zoho Bookmarks and converts them into an RSS feed. Useful with FF
   LiveBookmarks extension.
-- *mini.py*: Minifies files into printf statements for easy transport and scripting.
-- *move.py*: Re-sorts files in a directory based on a name prefix and number scheme.
+
+- *file_to_shell.py*: Minifies files into printf statements for easy transport and scripting.
+- *file_move.py*: Re-sorts files in a directory based on a name prefix and number scheme.
+
 - *ntstatus.py*: Looks up a NTSTATUS code and will attempt to find the English translation.
-- *rename.py*: Renames index-sorted files named with a matching prefix to their matching
+
+- *file_rename.py*: Renames index-sorted files named with a matching prefix to their matching
   entry+increnment. Used to rename a numerical group of files with an increment.
   (IE: rename files (pic-10 to pic-20) + 5 to (pic-15 to pic-20)).
+
 - *samedir.py*: Attempts to find files that match the same hash in a directory and
   offers the ability to delete them
 - *sitemap.py*: Used to spider a site and generate an XML-formatted sitemap.xml file.

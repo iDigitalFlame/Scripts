@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (C) 2020 - 2025 iDigitalFlame
+# Copyright (C) 2020 - 2026 iDigitalFlame
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,8 +23,15 @@ from sys import argv, exit, stderr
 from os.path import join, isdir, exists, isfile, abspath, dirname, basename, splitext
 
 
-def _move(src, prefix=""):
-    g = glob(join(abspath(src), "**"), recursive=False)
+def _move(path, prefix, ext):
+    p = join(abspath(path), "*")
+    if isinstance(ext, str) and len(ext) > 0:
+        if ext[0] == ".":
+            p += ext
+        else:
+            p = f"{p}.{ext}"
+    g = glob(p, recursive=False)
+    del p
     if len(prefix) > 0:
         r = compile(f"^{prefix}(?P<num>[0-9]+)\\..*$")
     else:
@@ -58,21 +65,26 @@ def _move(src, prefix=""):
 
 
 if __name__ == "__main__":
-    if len(argv) < 2:
-        print(f"{argv[0]} [prefix] <path> ")
+    if len(argv) <= 2:
+        print(f"{basename(argv[0])} <prefix> <path> [extension]")
         exit(2)
 
-    if len(argv) >= 3:
-        prefix, target = f"{argv[1]}-", argv[2]
+    if len(argv[1]) == 0 or argv[1] == "" or argv[1] == "-":
+        prefix = ""
     else:
-        prefix, target = "", argv[1]
+        prefix = f"{argv[1]}-"
 
-    if not isdir(target):
-        print(f'Path "{target}" does not exist or is not a directory!', file=stderr)
+    if len(argv) > 3:
+        ext = argv[3]
+    else:
+        ext = None
+
+    if not isdir(argv[2]):
+        print(f'Path "{argv[2]}" does not exist or is not a directory!', file=stderr)
         exit(1)
 
     try:
-        _move(target, prefix)
+        _move(argv[2], prefix, ext)
     except OSError as err:
         print(f"Error during move: {err}!", file=stderr)
         exit(1)

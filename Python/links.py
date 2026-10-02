@@ -74,9 +74,9 @@ def bookmarks_to_xml(auth, dir):
 
 class Auth(object):
     __slots__ = (
+        "scope",
         "_token",
         "_expires",
-        "scope",
         "client_id",
         "client_secret",
         "refresh_token",

@@ -1,0 +1,27 @@
+[package]
+name             = "appxprune"
+readme           = "README.md"
+license          = "GPL 3.0"
+version          = "1.0.0"
+edition          = "2021"
+authors          = [ "iDigitalFlame" ]
+publish          = false
+homepage         = "https://github.com/Scripts/Rust/appxprune/"
+repository       = "https://github.com/Scripts/Rust/appxprune/"
+description      = ""
+
+[features]
+default          = []
+debug            = []
+
+[profile.dev]
+panic            = "abort"
+
+[profile.release]
+lto              = false
+panic            = "abort"
+debug            = false
+strip            = true
+opt-level        = 3
+overflow-checks  = false
+debug-assertions = false
