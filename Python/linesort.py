@@ -113,8 +113,7 @@ class Sort(object):
                     buf.write(f"[{i.head}]\n")
             for x in i.lines:
                 x.print(buf, i.pad + a if pad else None, i.sep)
-            del i
-        del a
+            del a, i
 
     def print(self, output=None, alpha=False, pad=True, sort=False):
         if not isinstance(output, str) or len(output) == 0:

@@ -22,7 +22,6 @@
 
 #![no_implicit_prelude]
 #![cfg(target_os = "linux")]
-#![feature(never_type)]
 
 extern crate core;
 extern crate libc;
@@ -40,10 +39,12 @@ use std::path::Path;
 use std::process::exit;
 use std::vec::Vec;
 
-use libc::{execv, geteuid, getgrnam_r, getuid, group, setgid, setgroups, setuid};
+use libc::{O_CREAT, O_WRONLY, close, dup2, execv, geteuid, getgrnam_r, getuid, group, open, setgid, setgroups, setuid};
 
 const GID_MIN: u32 = 9_900u32;
 const GID_MAX: u32 = 9_910u32;
+
+const NULL: &str = "/dev/null\0";
 
 static ARGC: AtomicU32 = AtomicU32::new(0u32);
 static ARGV: AtomicPtr<*const i8> = AtomicPtr::new(null_mut());
@@ -137,14 +138,26 @@ impl Error<'_> {
 }
 
 fn main() {
-    let (a, f) = check!(setup());
+    let (a, f, n) = check!(setup());
     // Contain most of the allocating calls in 'setup' so they'll be free'd
     // regardless of the outcome of the exec call.
-    exec(&f, a);
+    exec(&f, a, n);
 }
 
 #[inline]
-fn exec(v: &CStr, a: *const *const i8) -> ! {
+fn exec(v: &CStr, a: *const *const i8, n: bool) -> ! {
+    // If 'n' is true, we connect stdout/stderr to /dev/null.
+    if n {
+        // We don't error on this as it really doesn't matter if it fails.
+        let f = unsafe { open(NULL.as_ptr() as _, O_CREAT | O_WRONLY, 0o0666) };
+        if f != -1 {
+            unsafe {
+                dup2(f, 1);
+                dup2(f, 2);
+                close(f);
+            }
+        }
+    }
     let _ = unsafe { execv(v.as_ptr(), a) };
     // The code below never will run unless an error occurs.
     eprintln!("error: execv failed! ({})", unsafe {
@@ -176,7 +189,34 @@ fn groups<'a>(v: &'a CStr) -> Result<Vec<u32>, Error<'a>> {
     }
     if g.is_empty() { Err(Error::NoGroups) } else { Ok(g) }
 }
-fn setup<'a>() -> Result<(*const *const i8, &'a CStr), Error<'a>> {
+fn gid<'a>(b: &mut Vec<u8>, n: &[u8]) -> Result<Option<u32>, Error<'a>> {
+    let mut g = group {
+        gr_gid:    0u32,
+        gr_mem:    null_mut(),
+        gr_name:   null_mut(),
+        gr_passwd: null_mut(),
+    };
+    let mut i = 256usize;
+    loop {
+        b.resize(i, 0);
+        let mut o = null_mut();
+        let r = unsafe {
+            getgrnam_r(
+                n.as_ptr() as *const i8,
+                &mut g,
+                b.as_mut_ptr() as *mut i8,
+                i,
+                &mut o,
+            )
+        };
+        match r {
+            0x22 => i *= 2,
+            0x0 => break Ok(unsafe { o.as_ref() }.map(|v| v.gr_gid)),
+            e => break Err(Error::Group(e)),
+        }
+    }
+}
+fn setup<'a>() -> Result<(*const *const i8, &'a CStr, bool), Error<'a>> {
     let n = ARGC.load(Ordering::Relaxed);
     if n < 3 {
         return Err(Error::NoArgs);
@@ -207,32 +247,11 @@ fn setup<'a>() -> Result<(*const *const i8, &'a CStr), Error<'a>> {
     }
     check!("setuid", setuid(u));
     drop(g); // 'g' should be dropped here
-    Ok(unsafe { (s.add(2), f) })
-}
-fn gid<'a>(b: &mut Vec<u8>, n: &[u8]) -> Result<Option<u32>, Error<'a>> {
-    let mut g = group {
-        gr_gid:    0u32,
-        gr_mem:    null_mut(),
-        gr_name:   null_mut(),
-        gr_passwd: null_mut(),
-    };
-    let mut i = 256usize;
-    loop {
-        b.resize(i, 0);
-        let mut o = null_mut();
-        let r = unsafe {
-            getgrnam_r(
-                n.as_ptr() as *const i8,
-                &mut g,
-                b.as_mut_ptr() as *mut i8,
-                i,
-                &mut o,
-            )
-        };
-        match r {
-            0x22 => i *= 2,
-            0x0 => break Ok(unsafe { o.as_ref() }.map(|v| v.gr_gid)),
-            e => break Err(Error::Group(e)),
-        }
-    }
+    Ok(unsafe {
+        (
+            s.add(2),
+            f,
+            CStr::from_ptr(s.read()).to_bytes().last().map_or(false, |&v| v == b'n'),
+        )
+    })
 }

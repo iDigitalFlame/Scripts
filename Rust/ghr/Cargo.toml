@@ -23,4 +23,4 @@ overflow-checks  = false
 debug-assertions = false
 
 [dependencies]
-libc             = { version = "0.2.185",  default-features = false }
+libc             = { version = "0.2.191",  default-features = false }
