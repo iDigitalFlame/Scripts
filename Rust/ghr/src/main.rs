@@ -245,13 +245,13 @@ fn setup<'a>() -> Result<(*const *const i8, &'a CStr, bool), Error<'a>> {
         return Err(Error::FileNotExist(f));
     }
     let g = groups(unsafe { CStr::from_ptr(s.add(1).read()) })?;
+    if g.len() > GROUPS_MAX {
+        return Err(Error::TooManyGroups);
+    }
     // SAFETY: We return an error if the list is empty, 'g' will always be
     //         at least size of 1 here.
     check!("setgid", setgid(*g.first().unwrap_unchecked()));
     if g.len() > 1 {
-        if g.len() > GROUPS_MAX {
-            return Err(Error::TooManyGroups);
-        }
         // Set Supplimentry Groups (if supplied)
         check!("setgroups", setgroups(g.len(), g.as_ptr()));
     }
