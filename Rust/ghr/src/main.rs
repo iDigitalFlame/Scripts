@@ -44,6 +44,8 @@ use libc::{O_CREAT, O_WRONLY, close, dup2, execv, geteuid, getgrnam_r, getuid, g
 const GID_MIN: u32 = 9_900u32;
 const GID_MAX: u32 = 9_910u32;
 
+const GROUPS_MAX: usize = 0x40usize;
+
 const NULL: &str = "/dev/null\0";
 
 static ARGC: AtomicU32 = AtomicU32::new(0u32);
@@ -80,6 +82,7 @@ enum Error<'a> {
     NoGroups,
     NoSetUID,
     NoFullpath,
+    TooManyGroups,
     Group(i32),
     GroupNotFound(&'a str),
     GroupNotAllowed(&'a str),
@@ -109,6 +112,10 @@ impl Error<'_> {
             },
             Error::NoFullpath => {
                 eprintln!("error: fullpath must be used!");
+                exit(1)
+            },
+            Error::TooManyGroups => {
+                eprintln!("error: too many groups specified!");
                 exit(1)
             },
             Error::Group(e) => {
@@ -242,6 +249,9 @@ fn setup<'a>() -> Result<(*const *const i8, &'a CStr, bool), Error<'a>> {
     //         at least size of 1 here.
     check!("setgid", setgid(*g.first().unwrap_unchecked()));
     if g.len() > 1 {
+        if g.len() > GROUPS_MAX {
+            return Err(Error::TooManyGroups);
+        }
         // Set Supplimentry Groups (if supplied)
         check!("setgroups", setgroups(g.len(), g.as_ptr()));
     }
